@@ -13,11 +13,15 @@ export default abstract class DatabaseClient {
 
   abstract deleteMany(collection, query): void;
 
-  abstract findOne(collection, query): void;
+  abstract findOne(
+    collection: string,
+    query: any,
+    projection: { [key: string]: number },
+  ): void;
 
   abstract findOneAndUpdate(collection, query, values, options): void;
 
-  abstract findOneAndDelete(collection, query, options): void;
+  abstract findOneAndDelete(collection, query): void;
 
   abstract find(collection, query, options): void;
 

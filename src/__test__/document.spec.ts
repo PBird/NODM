@@ -89,4 +89,37 @@ describe("Document", () => {
     await User.deleteOne({ name: "deleteOneName" });
     await Category.deleteOne({ name: "hehe" });
   });
+
+  test("Should findOne", async () => {
+    const User = db.model("user", userSchema);
+
+    const a = await User.findOne({ name: "deneme" }, {});
+  });
+
+  test("Should aggregate func run", async () => {
+    const User = db.model("user", userSchema);
+
+    const a = await User.aggregate([
+      { $match: { name: "deneme" } },
+
+      { $limit: 1 },
+    ]);
+  });
+
+  test("Should findOne and update ", async () => {
+    const User = db.model("user", userSchema);
+    const deneme = await User.findOneUpdate(
+      { name: "deneme" },
+      { name: "changedName" },
+    );
+
+    expect(deneme?.name).toEqual("changedName");
+  });
+
+  test("Should findOneAndDelete ", async () => {
+    const User = db.model("user", userSchema);
+    const numRemoved = await User.findOneAndDelete({ name: "deneme" });
+
+    expect(numRemoved).toEqual(1);
+  });
 });

@@ -1,10 +1,13 @@
 import path from "path";
 import DatabaseClient from "./DatabaseClient";
 import Datastore from "@seald-io/nedb";
+import NedBModel from "@seald-io/nedb/lib/model";
 import _ from "lodash";
 import { ObjectSchema } from "yup";
+
 import Model, { DBFields } from "../Model";
 import { createDSModel } from "../createDSModel";
+import Cursor from "../Cursor";
 
 export type NeDbClientOptions = Omit<
   Datastore.DataStoreOptions,
@@ -134,58 +137,85 @@ export class NeDbClient extends DatabaseClient {
   /**
    * Find one document
    */
-  async findOne<T>(collection: string, query: object) {
-    const currentCollection = this._collections[collection];
+  findOne<T>(
+    collection: string,
+    query: object,
+    projection: { [key: string]: number } = {},
+  ) {
+    const currentCollection = this._collections[collection] as Datastore<T>;
 
-    const result = await currentCollection.findOneAsync<T>(query);
-    return result;
+    const cursor = new Cursor<T>(
+      currentCollection,
+      query,
+      (docs) => (docs.length === 1 ? NedBModel.deepCopy(docs[0]) : null),
+      {
+        projection,
+        limit: 1,
+      },
+    );
+
+    return cursor;
   }
 
   /**
    * Find one document and update it
    *
-   * @param {String} collection Collection's name
-   * @param {Object} query Query
-   * @param {Object} values
-   * @param {Object} options
-   * @returns {Promise}
+   * if doc exist it will update and return it
+   * if upsert true and doc not exist: return  new doc
+   * if upsert false and doc not exist: return null
+   *
    */
-  findOneAndUpdate(collection, query, values, options) {
-    if (!options) {
-      options = {};
+  async findOneAndUpdate<T>(
+    collection: string,
+    query: object,
+    values: T,
+    options = { upsert: false },
+  ) {
+    const currentCollection = this._collections[collection] as Datastore<T>;
+
+    const qOptions: { upsert: boolean; multi: false; returnUpdatedDocs: true } =
+      {
+        ...options,
+        multi: false,
+        returnUpdatedDocs: true,
+      };
+
+    // Nedb'nin kendi findOne ı buglı eğer birden fazla döküman varsa null dönüor
+    const data = await this.findOne<T>(collection, query);
+
+    if (!data) {
+      if (qOptions.upsert) {
+        const newDoc = await currentCollection.insertAsync(values);
+        return newDoc;
+      } else {
+        return null;
+      }
+    } else {
+      const { affectedDocuments, upsert, numAffected } =
+        await currentCollection.updateAsync(
+          query,
+          {
+            $set: values,
+          },
+          qOptions,
+        );
+
+      return affectedDocuments;
     }
-
-    options.multi = false;
-
-    throw new TypeError("function has not writen yet.");
   }
 
   /**
    * Find one document and delete it
    *
-   * @param {String} collection Collection's name
-   * @param {Object} query Query
-   * @param {Object} options
-   * @returns {Promise}
    */
-  findOneAndDelete(collection, query, options) {
-    const that = this;
+  async findOneAndDelete<T>(collection: string, query: object) {
+    const currentCollection = this._collections[collection] as Datastore<T>;
 
-    if (!options) {
-      options = {};
-    }
+    const qOptions: { multi: false } = {
+      multi: false,
+    };
 
-    // Since this is 'findOne...' we'll only allow user to update
-    // one document at a time
-    options.multi = false;
-
-    return new Promise((resolve, reject) => {
-      const db = this._collections[collection];
-      db.remove(query, options, function (error, numRemoved) {
-        if (error) return reject(error);
-        return resolve(numRemoved);
-      });
-    });
+    return currentCollection.removeAsync(query, qOptions);
   }
 
   /**
