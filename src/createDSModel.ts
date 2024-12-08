@@ -2,6 +2,7 @@ import { ObjectSchema } from "yup";
 import Model, { DBFields } from "./Model";
 import { getClient as db } from "./clients";
 import Aggregation from "./Aggregation";
+import { FindOptions } from "./types";
 
 export function createDSModel<T extends DBFields>(
   name: string,
@@ -37,6 +38,14 @@ export function createDSModel<T extends DBFields>(
       return db().findOneAndUpdate<T>(this._name, query, values);
     }
 
+    static find(query = {}, options: FindOptions = {}) {
+      return db().find<T>(this._name, query, options);
+    }
+
+    /**
+     *
+     * Find one document and delete it in current collection
+     */
     static findOneAndDelete(query: object) {
       return db().findOneAndDelete<T>(this._name, query);
     }

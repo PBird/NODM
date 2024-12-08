@@ -1,15 +1,14 @@
 import NeDbCursor from "@seald-io/nedb/lib/cursor";
 import Datastore from "@seald-io/nedb";
-
-type CursorOptions = {
-  limit?: number;
-  skip?: number;
-  projection?: { [key: string]: number };
-  sort?: { [key: string]: number };
-};
+import { CursorOptions } from "./types";
 
 export default class Cursor<T> extends NeDbCursor {
-  constructor(db: Datastore<T>, query, mapFn, options: CursorOptions) {
+  constructor(
+    db: Datastore<T>,
+    query: object,
+    mapFn: any,
+    options: CursorOptions,
+  ) {
     super(db, query, mapFn);
     this._limit = options.limit;
     this._skip = options.skip;

@@ -122,4 +122,11 @@ describe("Document", () => {
 
     expect(numRemoved).toEqual(1);
   });
+
+  test("Should find ", async () => {
+    const User = db.model("user", userSchema);
+    const docs = await User.find();
+
+    expect(Array.isArray(docs)).toBeTruthy();
+  });
 });

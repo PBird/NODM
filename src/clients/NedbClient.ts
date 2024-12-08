@@ -1,13 +1,12 @@
 import path from "path";
 import DatabaseClient from "./DatabaseClient";
 import Datastore from "@seald-io/nedb";
-import NedBModel from "@seald-io/nedb/lib/model";
+import { deepCopy } from "@seald-io/nedb/lib/model";
 import _ from "lodash";
 import { ObjectSchema } from "yup";
-
-import Model, { DBFields } from "../Model";
 import { createDSModel } from "../createDSModel";
 import Cursor from "../Cursor";
+import { FindOptions } from "../types";
 
 export type NeDbClientOptions = Omit<
   Datastore.DataStoreOptions,
@@ -147,7 +146,7 @@ export class NeDbClient extends DatabaseClient {
     const cursor = new Cursor<T>(
       currentCollection,
       query,
-      (docs) => (docs.length === 1 ? NedBModel.deepCopy(docs[0]) : null),
+      (docs) => (docs.length === 1 ? deepCopy(docs[0]) : null),
       {
         projection,
         limit: 1,
@@ -221,50 +220,19 @@ export class NeDbClient extends DatabaseClient {
   /**
    * Find documents
    *
-   * @param {String} collection Collection's name
-   * @param {Object} query Query
-   * @param {Object} options
-   * @returns {Promise}
    */
-  find(collection, query, options) {
-    const that = this;
-    return new Promise((resolve, reject) => {
-      const db = this._collections[collection];
-      let cursor = db.find(query);
+  async find<T>(collection: any, query: object, options: FindOptions) {
+    const currentCollection = this._collections[collection] as Datastore<T>;
 
-      if (
-        options.sort &&
-        (_.isArray(options.sort) || _.isString(options.sort))
-      ) {
-        let sortOptions = {};
-        if (!_.isArray(options.sort)) {
-          options.sort = [options.sort];
-        }
+    const cursor = new Cursor<T[]>(
+      currentCollection,
+      query,
+      (docs) => docs.map((doc) => deepCopy(doc)),
+      options,
+    );
 
-        options.sort.forEach(function (s) {
-          if (!_.isString(s)) return;
-
-          let sortOrder = 1;
-          if (s[0] === "-") {
-            sortOrder = -1;
-            s = s.substring(1);
-          }
-          sortOptions[s] = sortOrder;
-        });
-
-        cursor = cursor.sort(sortOptions);
-      }
-      if (typeof options.skip === "number") {
-        cursor = cursor.skip(options.skip);
-      }
-      if (typeof options.limit === "number") {
-        cursor = cursor.limit(options.limit);
-      }
-      cursor.exec(function (error, result) {
-        if (error) return reject(error);
-        return resolve(result);
-      });
-    });
+    const results = (await cursor) as T[];
+    return results;
   }
 
   /**
