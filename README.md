@@ -10,3 +10,16 @@ TODO:
      * @protected
      */
     _protectedMember = "I am protected";
+
+
+
+Connect Database 
+
+`
+
+const dbPath = path.join(__dirname, "dbFiles/");
+
+connect(`nedb://${dbPath}`, { autoload: true });
+
+
+`

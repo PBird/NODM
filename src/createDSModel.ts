@@ -2,7 +2,7 @@ import { ObjectSchema } from "yup";
 import Model, { DBFields } from "./Model";
 import { getClient as db } from "./clients";
 import Aggregation from "./Aggregation";
-import { FindOptions } from "./types";
+import { FindOneAndUpdateOptions, FindOptions } from "./types";
 
 export function createDSModel<T extends DBFields>(
   name: string,
@@ -34,8 +34,20 @@ export function createDSModel<T extends DBFields>(
      * if upsert false and doc not exist: return null
      *
      */
-    static findOneUpdate(query: object, values: any) {
-      return db().findOneAndUpdate<T>(this._name, query, values);
+    static findOneUpdate(
+      query: object,
+      values: any,
+      options: FindOneAndUpdateOptions = { upsert: false },
+    ) {
+      return db().findOneAndUpdate<T>(this._name, query, values, options);
+    }
+
+    static findByIdAndUpdate(
+      id: string,
+      values: any,
+      options: FindOneAndUpdateOptions = { upsert: false },
+    ) {
+      return db().findByIdAndUpdate<T>(this._name, id, values, options);
     }
 
     static find(query = {}, options: FindOptions = {}) {
@@ -48,6 +60,17 @@ export function createDSModel<T extends DBFields>(
      */
     static findOneAndDelete(query: object) {
       return db().findOneAndDelete<T>(this._name, query);
+    }
+
+    /**
+     * Find document by id and delete it
+     *
+     * findOneAndDelete() command by a document's _id field.
+     * In other words, findByIdAndDelete(id) is a shorthand for findOneAndDelete({ _id: id })
+     *
+     */
+    static findByIdAndDelete(id: string) {
+      return db().findByIdAndDelete<T>(this._name, id);
     }
 
     /**

@@ -1,0 +1,48 @@
+{
+  "name": "@seald-io/nedb",
+  "version": "4.0.4",
+  "files": [
+    "lib/**/*.js",
+    "browser-version/**/*.js",
+    "index.js",
+    "index.d.ts"
+  ],
+  "types": "index.d.ts",
+  "description": "File-based embedded data store for node.js",
+  "keywords": [
+    "database",
+    "datastore",
+    "embedded"
+  ],
+  "homepage": "https://github.com/seald/nedb",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:seald/nedb.git"
+  },
+  "dependencies": {
+    "@seald-io/binary-search-tree": "^1.0.3",
+    "localforage": "^1.9.0",
+    "util": "^0.12.4"
+  },
+  "main": "index.js",
+  "browser": {
+    "./lib/customUtils.js": "./browser-version/lib/customUtils.js",
+    "./lib/storage.js": "./browser-version/lib/storage.browser.js",
+    "./lib/byline.js": "./browser-version/lib/byline.js"
+  },
+  "react-native": {
+    "./lib/customUtils.js": "./browser-version/lib/customUtils.js",
+    "./lib/storage.js": "./browser-version/lib/storage.react-native.js",
+    "./lib/byline.js": "./browser-version/lib/byline.js"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "standard": {
+    "ignore": [
+      "browser-version/out",
+      "**/*.ts"
+    ]
+  },
+}

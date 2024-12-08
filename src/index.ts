@@ -1,5 +1,6 @@
 export { getClient } from "./clients";
 import { NeDbClient, NeDbClientOptions } from "./clients/NedbClient";
+export { CollectionModel } from "./types";
 
 export function connect(url: string, options: NeDbClientOptions) {
   if (url.indexOf("nedb://") > -1) {

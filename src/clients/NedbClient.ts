@@ -6,7 +6,7 @@ import _ from "lodash";
 import { ObjectSchema } from "yup";
 import { createDSModel } from "../createDSModel";
 import Cursor from "../Cursor";
-import { FindOptions } from "../types";
+import { FindOneAndUpdateOptions, FindOptions } from "../types";
 
 export type NeDbClientOptions = Omit<
   Datastore.DataStoreOptions,
@@ -168,16 +168,19 @@ export class NeDbClient extends DatabaseClient {
     collection: string,
     query: object,
     values: T,
-    options = { upsert: false },
+    options: FindOneAndUpdateOptions,
   ) {
     const currentCollection = this._collections[collection] as Datastore<T>;
 
-    const qOptions: { upsert: boolean; multi: false; returnUpdatedDocs: true } =
-      {
-        ...options,
-        multi: false,
-        returnUpdatedDocs: true,
-      };
+    const qOptions: {
+      upsert?: boolean;
+      multi: false;
+      returnUpdatedDocs: true;
+    } = {
+      ...options,
+      multi: false,
+      returnUpdatedDocs: true,
+    };
 
     // Nedb'nin kendi findOne ı buglı eğer birden fazla döküman varsa null dönüor
     const data = await this.findOne<T>(collection, query);
@@ -203,6 +206,15 @@ export class NeDbClient extends DatabaseClient {
     }
   }
 
+  async findByIdAndUpdate<T>(
+    collection: string,
+    id: string,
+    values: T,
+    options: FindOneAndUpdateOptions,
+  ) {
+    return this.findOneAndUpdate<T>(collection, { _id: id }, values, options);
+  }
+
   /**
    * Find one document and delete it
    *
@@ -215,6 +227,15 @@ export class NeDbClient extends DatabaseClient {
     };
 
     return currentCollection.removeAsync(query, qOptions);
+  }
+
+  /**
+   * Find document by id and delete it
+   * findOneAndDelete() command by a document's _id field.
+   * In other words, findByIdAndDelete(id) is a shorthand for findOneAndDelete({ _id: id })
+   */
+  async findByIdAndDelete<T>(collection: string, id: string) {
+    return this.findOneAndDelete(collection, { _id: id });
   }
 
   /**

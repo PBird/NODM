@@ -1,8 +1,14 @@
-import * as Datastore from '@seald-io/nedb';
-import Datastore__default from '@seald-io/nedb';
+import * as _seald_io_nedb from '@seald-io/nedb';
+import _seald_io_nedb__default from '@seald-io/nedb';
 import * as yup from 'yup';
 import { ObjectSchema } from 'yup';
 import NeDbCursor from '@seald-io/nedb/lib/cursor';
+
+type DBFields = {
+    _id?: string;
+    createdAt?: Date;
+    updatedAt?: Date;
+};
 
 declare abstract class DatabaseClient {
     _url: string;
@@ -30,13 +36,62 @@ declare abstract class DatabaseClient {
     abstract driver(): void;
 }
 
-type DBFields = {
-    _id?: string;
-    createdAt?: Date;
-    updatedAt?: Date;
+declare function createDSModel<T extends DBFields>(name: string, schema: ObjectSchema<T>): {
+    new (values: T): {
+        _name: string;
+        values: T & DBFields;
+        get<K extends keyof DBFields | keyof T>(key: K): (T & DBFields)[K];
+        set<K extends keyof DBFields | keyof T>(key: K, value: (T & DBFields)[K]): T[K];
+        save(): Promise<void>;
+        delete(): Promise<number>;
+    };
+    _name: string;
+    schema: ObjectSchema<T, yup.AnyObject, any, "">;
+    /**
+     * Find one document in current collection
+     *
+     * TODO: Need options to specify whether references should be loaded
+     * populate options will add
+     *
+     */
+    findOne(query: object, projection?: {
+        [key: string]: number;
+    }): Cursor<T>;
+    /**
+     * Find one document and update it in current collection
+     * if doc exist it will update and return it
+     * if upsert true and doc not exist: return  new doc
+     * if upsert false and doc not exist: return null
+     *
+     */
+    findOneUpdate(query: object, values: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
+    findByIdAndUpdate(id: string, values: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
+    find(query?: {}, options?: FindOptions): Promise<T[]>;
+    /**
+     *
+     * Find one document and delete it in current collection
+     */
+    findOneAndDelete(query: object): Promise<number>;
+    /**
+     * Find document by id and delete it
+     *
+     * findOneAndDelete() command by a document's _id field.
+     * In other words, findByIdAndDelete(id) is a shorthand for findOneAndDelete({ _id: id })
+     *
+     */
+    findByIdAndDelete(id: string): Promise<number>;
+    /**
+     * Delete many documents in current collection
+     */
+    deleteOne(query: object): Promise<number>;
+    /**
+     * Delete one document in current collection
+     */
+    deleteMany(query: object): Promise<number>;
+    aggregate(pipeline: any[]): Promise<any[]>;
 };
 
-type CursorOptions = {
+interface CursorOptions {
     limit?: number;
     skip?: number;
     projection?: {
@@ -45,17 +100,24 @@ type CursorOptions = {
     sort?: {
         [key: string]: number;
     };
-};
+}
+interface FindOptions extends CursorOptions {
+}
+interface FindOneAndUpdateOptions {
+    upsert?: boolean;
+}
+type CollectionModel = ReturnType<typeof createDSModel>;
+
 declare class Cursor<T> extends NeDbCursor {
-    constructor(db: Datastore__default<T>, query: any, mapFn: any, options: CursorOptions);
+    constructor(db: _seald_io_nedb__default<T>, query: object, mapFn: any, options: CursorOptions);
     then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T | null) => TResult1 | PromiseLike<TResult1>) | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null): Promise<TResult1 | TResult2>;
 }
 
-type NeDbClientOptions = Omit<Datastore__default.DataStoreOptions, "filename" | "inMemoryOnly">;
+type NeDbClientOptions = Omit<_seald_io_nedb__default.DataStoreOptions, "filename" | "inMemoryOnly">;
 declare class NeDbClient extends DatabaseClient {
     _path: string;
     _collections: {
-        [key: string]: Datastore__default<any>;
+        [key: string]: _seald_io_nedb__default<any>;
     };
     _options: NeDbClientOptions;
     constructor(url: string, collections: any, options: NeDbClientOptions);
@@ -75,8 +137,11 @@ declare class NeDbClient extends DatabaseClient {
         findOne(query: object, projection?: {
             [key: string]: number;
         }): Cursor<T>;
-        findOneUpdate(query: object, values: any): Promise<Datastore.Document<T> | null>;
+        findOneUpdate(query: object, values: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
+        findByIdAndUpdate(id: string, values: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
+        find(query?: {}, options?: FindOptions): Promise<T[]>;
         findOneAndDelete(query: object): Promise<number>;
+        findByIdAndDelete(id: string): Promise<number>;
         deleteOne(query: object): Promise<number>;
         deleteMany(query: object): Promise<number>;
         aggregate(pipeline: any[]): Promise<any[]>;
@@ -114,23 +179,24 @@ declare class NeDbClient extends DatabaseClient {
      * if upsert false and doc not exist: return null
      *
      */
-    findOneAndUpdate<T>(collection: string, query: object, values: T, options?: {
-        upsert: boolean;
-    }): Promise<Datastore.Document<T> | null>;
+    findOneAndUpdate<T>(collection: string, query: object, values: T, options: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
+    findByIdAndUpdate<T>(collection: string, id: string, values: T, options: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
     /**
      * Find one document and delete it
      *
      */
     findOneAndDelete<T>(collection: string, query: object): Promise<number>;
     /**
+     * Find document by id and delete it
+     * findOneAndDelete() command by a document's _id field.
+     * In other words, findByIdAndDelete(id) is a shorthand for findOneAndDelete({ _id: id })
+     */
+    findByIdAndDelete<T>(collection: string, id: string): Promise<number>;
+    /**
      * Find documents
      *
-     * @param {String} collection Collection's name
-     * @param {Object} query Query
-     * @param {Object} options
-     * @returns {Promise}
      */
-    find(collection: any, query: any, options: any): Promise<unknown>;
+    find<T>(collection: any, query: object, options: FindOptions): Promise<T[]>;
     /**
      * Get count of collection by query
      *
@@ -155,7 +221,7 @@ declare class NeDbClient extends DatabaseClient {
      * @param {Object} options
      * @returns {Promise}
      */
-    static connect(url: any, options: Datastore__default.DataStoreOptions): NeDbClient;
+    static connect(url: any, options: _seald_io_nedb__default.DataStoreOptions): NeDbClient;
     /**
      * Close current connection
      *
@@ -180,7 +246,7 @@ declare class NeDbClient extends DatabaseClient {
     toNativeId(id: any): void;
     nativeIdType(): StringConstructor;
     driver(): {
-        [key: string]: Datastore__default<any>;
+        [key: string]: _seald_io_nedb__default<any>;
     };
 }
 
@@ -188,4 +254,4 @@ declare function getClient(): NeDbClient;
 
 declare function connect(url: string, options: NeDbClientOptions): Error | undefined;
 
-export { connect, getClient };
+export { type CollectionModel, connect, getClient };

@@ -28,8 +28,7 @@ var DatabaseClient = class {
 
 // src/clients/NedbClient.ts
 import Datastore2 from "@seald-io/nedb";
-import NedBModel from "@seald-io/nedb/lib/model";
-import _3 from "lodash";
+import { deepCopy as deepCopy2 } from "@seald-io/nedb/lib/model";
 
 // src/Model.ts
 var Model = class {
@@ -349,11 +348,31 @@ function createDSModel(name, schema) {
      * if upsert false and doc not exist: return null
      *
      */
-    static findOneUpdate(query, values) {
-      return getClient().findOneAndUpdate(this._name, query, values);
+    static findOneUpdate(query, values, options = { upsert: false }) {
+      return getClient().findOneAndUpdate(this._name, query, values, options);
     }
+    static findByIdAndUpdate(id, values, options = { upsert: false }) {
+      return getClient().findByIdAndUpdate(this._name, id, values, options);
+    }
+    static find(query = {}, options = {}) {
+      return getClient().find(this._name, query, options);
+    }
+    /**
+     *
+     * Find one document and delete it in current collection
+     */
     static findOneAndDelete(query) {
       return getClient().findOneAndDelete(this._name, query);
+    }
+    /**
+     * Find document by id and delete it
+     *
+     * findOneAndDelete() command by a document's _id field.
+     * In other words, findByIdAndDelete(id) is a shorthand for findOneAndDelete({ _id: id })
+     *
+     */
+    static findByIdAndDelete(id) {
+      return getClient().findByIdAndDelete(this._name, id);
     }
     /**
      * Delete many documents in current collection
@@ -496,7 +515,7 @@ var NeDbClient = class _NeDbClient extends DatabaseClient {
     const cursor = new Cursor(
       currentCollection,
       query,
-      (docs) => docs.length === 1 ? NedBModel.deepCopy(docs[0]) : null,
+      (docs) => docs.length === 1 ? deepCopy2(docs[0]) : null,
       {
         projection,
         limit: 1
@@ -512,7 +531,7 @@ var NeDbClient = class _NeDbClient extends DatabaseClient {
    * if upsert false and doc not exist: return null
    *
    */
-  async findOneAndUpdate(collection, query, values, options = { upsert: false }) {
+  async findOneAndUpdate(collection, query, values, options) {
     const currentCollection = this._collections[collection];
     const qOptions = {
       ...options,
@@ -538,6 +557,9 @@ var NeDbClient = class _NeDbClient extends DatabaseClient {
       return affectedDocuments;
     }
   }
+  async findByIdAndUpdate(collection, id, values, options) {
+    return this.findOneAndUpdate(collection, { _id: id }, values, options);
+  }
   /**
    * Find one document and delete it
    *
@@ -550,45 +572,27 @@ var NeDbClient = class _NeDbClient extends DatabaseClient {
     return currentCollection.removeAsync(query, qOptions);
   }
   /**
+   * Find document by id and delete it
+   * findOneAndDelete() command by a document's _id field.
+   * In other words, findByIdAndDelete(id) is a shorthand for findOneAndDelete({ _id: id })
+   */
+  async findByIdAndDelete(collection, id) {
+    return this.findOneAndDelete(collection, { _id: id });
+  }
+  /**
    * Find documents
    *
-   * @param {String} collection Collection's name
-   * @param {Object} query Query
-   * @param {Object} options
-   * @returns {Promise}
    */
-  find(collection, query, options) {
-    const that = this;
-    return new Promise((resolve, reject) => {
-      const db = this._collections[collection];
-      let cursor = db.find(query);
-      if (options.sort && (_3.isArray(options.sort) || _3.isString(options.sort))) {
-        let sortOptions = {};
-        if (!_3.isArray(options.sort)) {
-          options.sort = [options.sort];
-        }
-        options.sort.forEach(function(s) {
-          if (!_3.isString(s)) return;
-          let sortOrder = 1;
-          if (s[0] === "-") {
-            sortOrder = -1;
-            s = s.substring(1);
-          }
-          sortOptions[s] = sortOrder;
-        });
-        cursor = cursor.sort(sortOptions);
-      }
-      if (typeof options.skip === "number") {
-        cursor = cursor.skip(options.skip);
-      }
-      if (typeof options.limit === "number") {
-        cursor = cursor.limit(options.limit);
-      }
-      cursor.exec(function(error, result) {
-        if (error) return reject(error);
-        return resolve(result);
-      });
-    });
+  async find(collection, query, options) {
+    const currentCollection = this._collections[collection];
+    const cursor = new Cursor(
+      currentCollection,
+      query,
+      (docs) => docs.map((doc) => deepCopy2(doc)),
+      options
+    );
+    const results = await cursor;
+    return results;
   }
   /**
    * Get count of collection by query
