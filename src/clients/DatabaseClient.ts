@@ -50,4 +50,3 @@ export default abstract class DatabaseClient {
   abstract driver(): void;
 }
 
-module.exports = DatabaseClient;

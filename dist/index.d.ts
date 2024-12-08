@@ -2,6 +2,7 @@ import * as Datastore from '@seald-io/nedb';
 import Datastore__default from '@seald-io/nedb';
 import * as yup from 'yup';
 import { ObjectSchema } from 'yup';
+import NeDbCursor from '@seald-io/nedb/lib/cursor';
 
 declare abstract class DatabaseClient {
     _url: string;
@@ -10,9 +11,11 @@ declare abstract class DatabaseClient {
     abstract delete(collection: string, id: string): void;
     abstract deleteOne(collection: any, query: any): void;
     abstract deleteMany(collection: any, query: any): void;
-    abstract findOne(collection: any, query: any): void;
+    abstract findOne(collection: string, query: any, projection: {
+        [key: string]: number;
+    }): void;
     abstract findOneAndUpdate(collection: any, query: any, values: any, options: any): void;
-    abstract findOneAndDelete(collection: any, query: any, options: any): void;
+    abstract findOneAndDelete(collection: any, query: any): void;
     abstract find(collection: any, query: any, options: any): void;
     abstract count(collection: any, query: any): void;
     abstract createIndex(collection: any, field: any, options: any): void;
@@ -32,6 +35,21 @@ type DBFields = {
     createdAt?: Date;
     updatedAt?: Date;
 };
+
+type CursorOptions = {
+    limit?: number;
+    skip?: number;
+    projection?: {
+        [key: string]: number;
+    };
+    sort?: {
+        [key: string]: number;
+    };
+};
+declare class Cursor<T> extends NeDbCursor {
+    constructor(db: Datastore__default<T>, query: any, mapFn: any, options: CursorOptions);
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T | null) => TResult1 | PromiseLike<TResult1>) | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null): Promise<TResult1 | TResult2>;
+}
 
 type NeDbClientOptions = Omit<Datastore__default.DataStoreOptions, "filename" | "inMemoryOnly">;
 declare class NeDbClient extends DatabaseClient {
@@ -54,9 +72,14 @@ declare class NeDbClient extends DatabaseClient {
         };
         _name: string;
         schema: ObjectSchema<T, yup.AnyObject, any, "">;
-        findOne(query: object): Promise<Datastore.Document<T>>;
+        findOne(query: object, projection?: {
+            [key: string]: number;
+        }): Cursor<T>;
+        findOneUpdate(query: object, values: any): Promise<Datastore.Document<T> | null>;
+        findOneAndDelete(query: object): Promise<number>;
         deleteOne(query: object): Promise<number>;
         deleteMany(query: object): Promise<number>;
+        aggregate(pipeline: any[]): Promise<any[]>;
     };
     /**
      * Save (upsert) document
@@ -80,26 +103,25 @@ declare class NeDbClient extends DatabaseClient {
     /**
      * Find one document
      */
-    findOne<T>(collection: string, query: object): Promise<Datastore.Document<T>>;
+    findOne<T>(collection: string, query: object, projection?: {
+        [key: string]: number;
+    }): Cursor<T>;
     /**
      * Find one document and update it
      *
-     * @param {String} collection Collection's name
-     * @param {Object} query Query
-     * @param {Object} values
-     * @param {Object} options
-     * @returns {Promise}
+     * if doc exist it will update and return it
+     * if upsert true and doc not exist: return  new doc
+     * if upsert false and doc not exist: return null
+     *
      */
-    findOneAndUpdate(collection: any, query: any, values: any, options: any): void;
+    findOneAndUpdate<T>(collection: string, query: object, values: T, options?: {
+        upsert: boolean;
+    }): Promise<Datastore.Document<T> | null>;
     /**
      * Find one document and delete it
      *
-     * @param {String} collection Collection's name
-     * @param {Object} query Query
-     * @param {Object} options
-     * @returns {Promise}
      */
-    findOneAndDelete(collection: any, query: any, options: any): Promise<unknown>;
+    findOneAndDelete<T>(collection: string, query: object): Promise<number>;
     /**
      * Find documents
      *
