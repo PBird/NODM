@@ -1,76 +1,12 @@
 import * as _seald_io_nedb from '@seald-io/nedb';
 import _seald_io_nedb__default from '@seald-io/nedb';
 import * as yup from 'yup';
-import { ObjectSchema } from 'yup';
+import { AnyObject, ObjectSchema, Maybe } from 'yup';
 import NeDbCursor from '@seald-io/nedb/lib/cursor';
-
-declare class Cursor<T> extends NeDbCursor {
-    constructor(db: _seald_io_nedb__default<T>, query: object, mapFn: any, options: CursorOptions);
-    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T | null) => TResult1 | PromiseLike<TResult1>) | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null): Promise<TResult1 | TResult2>;
-}
-
-declare function createModel<T extends DBFields>(collectionName: string, schema: ObjectSchema<T>): {
-    new (values: T & DBFields): {
-        values: T & DBFields;
-        get<K extends keyof (T & DBFields)>(key: K): (T & DBFields)[K];
-        set<K extends keyof (T & DBFields)>(key: K, value: (T & DBFields)[K]): T[K];
-        /**
-         * Save (upsert) document
-         */
-        save(): Promise<void>;
-        /**
-         * Delete current document
-         */
-        delete(): Promise<number>;
-    };
-    collectionName: string;
-    schema: ObjectSchema<T, yup.AnyObject, any, "">;
-    findOne(query: object, projection?: {
-        [key: string]: number;
-    }): Cursor<T>;
-    findOneUpdate(query: object, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
-    findByIdAndUpdate(id: string, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
-    find(query?: {}, options?: FindOptions): Promise<T[]>;
-    findOneAndDelete(query: object): Promise<number>;
-    findByIdAndDelete(id: string): Promise<number>;
-    updateMany(query: object, values: any, options?: UpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
-    deleteOne(query: object): Promise<number>;
-    deleteMany(query: object): Promise<number>;
-    ensureIndex(options: _seald_io_nedb.default.EnsureIndexOptions): Promise<void>;
-    aggregate(pipeline: any[]): Promise<any[]>;
-};
-
-type DBFields = {
-    _id?: string;
-    createdAt?: Date;
-    updatedAt?: Date;
-};
-interface CursorOptions {
-    limit?: number;
-    skip?: number;
-    projection?: {
-        [key: string]: number;
-    };
-    sort?: {
-        [key: string]: number;
-    };
-}
-interface FindOptions extends CursorOptions {
-}
-interface UpdateOptions {
-    upsert?: boolean;
-    overwrite?: boolean;
-}
-interface UpdateManyOptions extends UpdateOptions {
-}
-interface FindOneAndUpdateOptions extends UpdateOptions {
-}
-type CollectionModel<T extends DBFields> = ReturnType<typeof createModel<T>>;
 
 declare abstract class DatabaseClient {
     _url: string;
     constructor(url: any);
-    abstract save(collection: string, values: any, id: string): void;
     abstract delete(collection: string, id: string): void;
     abstract deleteOne(collection: any, query: any): void;
     abstract deleteMany(collection: any, query: any): void;
@@ -93,35 +29,186 @@ declare abstract class DatabaseClient {
     abstract driver(): void;
 }
 
+declare function createModel<T extends AnyObject>(collectionName: string, schema: ObjectSchema<T>): {
+    new (values: {
+        _id?: yup.Maybe<string | undefined>;
+        createdAt?: yup.Maybe<Date | undefined>;
+        updatedAt?: yup.Maybe<Date | undefined>;
+    } & T): {
+        values: {
+            _id?: yup.Maybe<string | undefined>;
+            createdAt?: yup.Maybe<Date | undefined>;
+            updatedAt?: yup.Maybe<Date | undefined>;
+        } & T;
+        get<K extends ("_id" | "createdAt" | "updatedAt") | keyof T>(key: K): ({
+            _id?: yup.Maybe<string | undefined>;
+            createdAt?: yup.Maybe<Date | undefined>;
+            updatedAt?: yup.Maybe<Date | undefined>;
+        } & T)[K];
+        set<K extends ("_id" | "createdAt" | "updatedAt") | keyof T>(key: K, value: ({
+            _id?: yup.Maybe<string | undefined>;
+            createdAt?: yup.Maybe<Date | undefined>;
+            updatedAt?: yup.Maybe<Date | undefined>;
+        } & T)[K]): T[K];
+        /**
+         * Save (upsert) document
+         */
+        save(options?: SaveOptions): Promise<void>;
+        /**
+         * Delete current document
+         */
+        delete(): Promise<number>;
+    };
+    collectionName: string;
+    schema: ObjectSchema<{
+        _id?: yup.Maybe<string | undefined>;
+        createdAt?: yup.Maybe<Date | undefined>;
+        updatedAt?: yup.Maybe<Date | undefined>;
+    } & T, AnyObject, any, "">;
+    validate(values: any): Promise<void>;
+    findOne(query: object, projection?: {
+        [key: string]: number;
+    }): Cursor<{
+        _id?: yup.Maybe<string | undefined>;
+        createdAt?: yup.Maybe<Date | undefined>;
+        updatedAt?: yup.Maybe<Date | undefined>;
+    } & T>;
+    findOneUpdate(query: object, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<{
+        _id?: yup.Maybe<string | undefined>;
+        createdAt?: yup.Maybe<Date | undefined>;
+        updatedAt?: yup.Maybe<Date | undefined>;
+    } & T> | null>;
+    findByIdAndUpdate(id: string, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<{
+        _id?: yup.Maybe<string | undefined>;
+        createdAt?: yup.Maybe<Date | undefined>;
+        updatedAt?: yup.Maybe<Date | undefined>;
+    } & T> | null>;
+    find(query?: {}, options?: FindOptions): Promise<({
+        _id?: yup.Maybe<string | undefined>;
+        createdAt?: yup.Maybe<Date | undefined>;
+        updatedAt?: yup.Maybe<Date | undefined>;
+    } & T)[]>;
+    findOneAndDelete(query: object): Promise<number>;
+    findByIdAndDelete(id: string): Promise<number>;
+    updateMany(query: object, values: any, options?: UpdateOptions): Promise<_seald_io_nedb.Document<{
+        _id?: yup.Maybe<string | undefined>;
+        createdAt?: yup.Maybe<Date | undefined>;
+        updatedAt?: yup.Maybe<Date | undefined>;
+    } & T> | null>;
+    deleteOne(query: object): Promise<number>;
+    deleteMany(query: object): Promise<number>;
+    ensureIndex(options: _seald_io_nedb.default.EnsureIndexOptions): Promise<void>;
+    aggregate(pipeline: any[]): Promise<any[]>;
+};
+
+interface SaveOptions {
+    validateBeforeSave: boolean;
+}
+interface CursorOptions {
+    limit?: number;
+    skip?: number;
+    projection?: {
+        [key: string]: number;
+    };
+    sort?: {
+        [key: string]: number;
+    };
+}
+interface FindOptions extends CursorOptions {
+}
+interface UpdateOptions {
+    upsert?: boolean;
+    overwrite?: boolean;
+    validateBeforeSave?: boolean;
+}
+interface UpdateManyOptions extends UpdateOptions {
+}
+interface FindOneAndUpdateOptions extends UpdateOptions {
+}
+type CollectionModel<T extends AnyObject> = ReturnType<typeof createModel<T>>;
+
+declare class Cursor<T> extends NeDbCursor {
+    constructor(db: _seald_io_nedb__default<T>, query: object, mapFn: any, options: CursorOptions);
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T | null) => TResult1 | PromiseLike<TResult1>) | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null): Promise<TResult1 | TResult2>;
+}
+
 type NeDbClientOptions = Omit<_seald_io_nedb__default.DataStoreOptions, "filename" | "inMemoryOnly">;
 declare class NeDbClient extends DatabaseClient {
     _path: string;
     _collections: {
         [key: string]: _seald_io_nedb__default<any>;
     };
+    _schemas: {
+        [key: string]: ObjectSchema<AnyObject>;
+    };
     _options: NeDbClientOptions;
-    constructor(url: string, collections: any, options: NeDbClientOptions);
+    constructor(url: string, collections: {
+        [key: string]: _seald_io_nedb__default<any>;
+    }, schemas: {
+        [key: string]: ObjectSchema<AnyObject>;
+    }, options: NeDbClientOptions);
     static urlToPath(url: string): string;
     private getCollectionPath;
-    model<T extends Record<string, any>>(name: string, schema: ObjectSchema<T>): {
-        new (values: T & DBFields): {
-            values: T & DBFields;
-            get<K extends keyof DBFields | keyof T>(key: K): (T & DBFields)[K];
-            set<K extends keyof DBFields | keyof T>(key: K, value: (T & DBFields)[K]): T[K];
-            save(): Promise<void>;
+    model<T extends AnyObject>(name: string, schema: ObjectSchema<T, AnyObject, T>): {
+        new (values: {
+            _id?: Maybe<string | undefined>;
+            createdAt?: Maybe<Date | undefined>;
+            updatedAt?: Maybe<Date | undefined>;
+        } & T): {
+            values: {
+                _id?: Maybe<string | undefined>;
+                createdAt?: Maybe<Date | undefined>;
+                updatedAt?: Maybe<Date | undefined>;
+            } & T;
+            get<K extends ("_id" | "createdAt" | "updatedAt") | keyof T>(key: K): ({
+                _id?: Maybe<string | undefined>;
+                createdAt?: Maybe<Date | undefined>;
+                updatedAt?: Maybe<Date | undefined>;
+            } & T)[K];
+            set<K extends ("_id" | "createdAt" | "updatedAt") | keyof T>(key: K, value: ({
+                _id?: Maybe<string | undefined>;
+                createdAt?: Maybe<Date | undefined>;
+                updatedAt?: Maybe<Date | undefined>;
+            } & T)[K]): T[K];
+            save(options?: SaveOptions): Promise<void>;
             delete(): Promise<number>;
         };
         collectionName: string;
-        schema: ObjectSchema<T, yup.AnyObject, any, "">;
+        schema: ObjectSchema<{
+            _id?: Maybe<string | undefined>;
+            createdAt?: Maybe<Date | undefined>;
+            updatedAt?: Maybe<Date | undefined>;
+        } & T, AnyObject, any, "">;
+        validate(values: any): Promise<void>;
         findOne(query: object, projection?: {
             [key: string]: number;
-        }): Cursor<T>;
-        findOneUpdate(query: object, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
-        findByIdAndUpdate(id: string, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
-        find(query?: {}, options?: FindOptions): Promise<T[]>;
+        }): Cursor<{
+            _id?: Maybe<string | undefined>;
+            createdAt?: Maybe<Date | undefined>;
+            updatedAt?: Maybe<Date | undefined>;
+        } & T>;
+        findOneUpdate(query: object, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<{
+            _id?: Maybe<string | undefined>;
+            createdAt?: Maybe<Date | undefined>;
+            updatedAt?: Maybe<Date | undefined>;
+        } & T> | null>;
+        findByIdAndUpdate(id: string, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<{
+            _id?: Maybe<string | undefined>;
+            createdAt?: Maybe<Date | undefined>;
+            updatedAt?: Maybe<Date | undefined>;
+        } & T> | null>;
+        find(query?: {}, options?: FindOptions): Promise<({
+            _id?: Maybe<string | undefined>;
+            createdAt?: Maybe<Date | undefined>;
+            updatedAt?: Maybe<Date | undefined>;
+        } & T)[]>;
         findOneAndDelete(query: object): Promise<number>;
         findByIdAndDelete(id: string): Promise<number>;
-        updateMany(query: object, values: any, options?: UpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
+        updateMany(query: object, values: any, options?: UpdateOptions): Promise<_seald_io_nedb.Document<{
+            _id?: Maybe<string | undefined>;
+            createdAt?: Maybe<Date | undefined>;
+            updatedAt?: Maybe<Date | undefined>;
+        } & T> | null>;
         deleteOne(query: object): Promise<number>;
         deleteMany(query: object): Promise<number>;
         ensureIndex(options: _seald_io_nedb__default.EnsureIndexOptions): Promise<void>;
@@ -131,12 +218,12 @@ declare class NeDbClient extends DatabaseClient {
      * Save (upsert) document
      *
      */
-    save<T>(collection: string, values: any, id?: string): Promise<T | null>;
+    save<T>(collection: string, values: any, options: SaveOptions, id?: Maybe<string>): Promise<T | null>;
     /**
      * Delete document
      *
      */
-    delete(collection: string, id?: string): Promise<number>;
+    delete(collection: string, id?: Maybe<string>): Promise<number>;
     /**
      * Delete one document by query
      *

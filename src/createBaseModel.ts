@@ -1,4 +1,4 @@
-import { AnyObject, ObjectSchema } from "yup";
+import { AnyObject, date, InferType, object, ObjectSchema, string } from "yup";
 import Datastore from "@seald-io/nedb";
 import { FindOneAndUpdateOptions, FindOptions, UpdateOptions } from "./types";
 import Aggregation from "./Aggregation";
@@ -14,6 +14,10 @@ export default function createBaseModel<T extends AnyObject>(
     static schema = schema;
 
     constructor() {}
+
+    static async validate(values) {
+      await this.schema.validate(values);
+    }
 
     /**
      * Find one document in current collection
@@ -38,7 +42,12 @@ export default function createBaseModel<T extends AnyObject>(
       updateQuery: any,
       options?: FindOneAndUpdateOptions,
     ) {
-      return db().findOneAndUpdate<T>(this.collectionName, query, updateQuery, options);
+      return db().findOneAndUpdate<T>(
+        this.collectionName,
+        query,
+        updateQuery,
+        options,
+      );
     }
 
     static findByIdAndUpdate(
@@ -46,7 +55,12 @@ export default function createBaseModel<T extends AnyObject>(
       updateQuery: any,
       options?: FindOneAndUpdateOptions,
     ) {
-      return db().findByIdAndUpdate<T>(this.collectionName, id, updateQuery, options);
+      return db().findByIdAndUpdate<T>(
+        this.collectionName,
+        id,
+        updateQuery,
+        options,
+      );
     }
 
     static find(query = {}, options: FindOptions = {}) {

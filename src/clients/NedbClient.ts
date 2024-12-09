@@ -3,18 +3,22 @@ import DatabaseClient from "./DatabaseClient";
 import Datastore from "@seald-io/nedb";
 import { deepCopy } from "@seald-io/nedb/lib/model";
 import _ from "lodash";
-import { ObjectSchema } from "yup";
+import { AnyObject, AnySchema, Maybe, ObjectSchema } from "yup";
 import Cursor from "../Cursor";
 import {
   DefaultUpdateOption,
   FindOneAndUpdateOptions,
   FindOptions,
+  SaveOptions,
   UpdateManyOptions,
   UpdateOptions,
 } from "../types";
-import { Options } from "tsup";
 import hasOperator from "../utils/hasOperator";
 import { createModel } from "../createModel";
+import {
+  returnNewDocAndValidateUpserting,
+  validateDocAndReturnQOnUpdate,
+} from "../utils";
 
 export type NeDbClientOptions = Omit<
   Datastore.DataStoreOptions,
@@ -25,19 +29,22 @@ export class NeDbClient extends DatabaseClient {
   _path: string;
 
   _collections: { [key: string]: Datastore<any> };
+  _schemas: { [key: string]: ObjectSchema<AnyObject> };
 
   _options: NeDbClientOptions;
 
-  constructor(url: string, collections, options: NeDbClientOptions) {
+  constructor(
+    url: string,
+    collections: { [key: string]: Datastore<any> },
+    schemas: { [key: string]: ObjectSchema<AnyObject> },
+    options: NeDbClientOptions,
+  ) {
     super(url);
     this._path = NeDbClient.urlToPath(url);
     this._options = options;
 
-    if (collections) {
-      this._collections = collections;
-    } else {
-      this._collections = {};
-    }
+    this._collections = collections || {};
+    this._schemas = schemas || {};
   }
 
   static urlToPath(url: string) {
@@ -47,14 +54,17 @@ export class NeDbClient extends DatabaseClient {
     return url;
   }
 
-  private getCollectionPath(collection) {
+  private getCollectionPath(collection: string) {
     if (this._path === "memory") {
       return this._path;
     }
     return path.join(this._path, collection) + ".db";
   }
 
-  model<T extends Record<string, any>>(name: string, schema: ObjectSchema<T>) {
+  model<T extends AnyObject>(
+    name: string,
+    schema: ObjectSchema<T, AnyObject, T>,
+  ) {
     // TODO: We can  configure memory db later
     if (this._path === "memory") {
       const ds = new Datastore({ inMemoryOnly: true, ...this._options });
@@ -66,6 +76,7 @@ export class NeDbClient extends DatabaseClient {
     const Model = createModel<T>(name, schema);
 
     this._collections[name] = ds;
+    this._schemas[name] = Model.schema as ObjectSchema<AnyObject>;
 
     return Model;
   }
@@ -77,9 +88,17 @@ export class NeDbClient extends DatabaseClient {
   async save<T>(
     collection: string,
     values: any,
-    id?: string,
+    options: SaveOptions,
+    id?: Maybe<string>,
   ): Promise<T | null> {
     const currentCollection = this._collections[collection];
+    const currentSchema = this._schemas[collection];
+
+    // validate before save
+    if (options.validateBeforeSave) {
+      await currentSchema.validate(values);
+    }
+
     if (typeof id === "undefined") {
       const result = await currentCollection.insertAsync(values);
 
@@ -102,7 +121,7 @@ export class NeDbClient extends DatabaseClient {
    * Delete document
    *
    */
-  async delete(collection: string, id?: string) {
+  async delete(collection: string, id?: Maybe<string>) {
     if (typeof id === "undefined") return 0;
 
     const currentCollection = this._collections[collection];
@@ -187,6 +206,7 @@ export class NeDbClient extends DatabaseClient {
 
     if (!data) {
       if (qOptions.upsert) {
+        // const newData =
         const newDoc = await currentCollection.insertAsync(updateQuery);
         return newDoc;
       } else {
@@ -223,6 +243,7 @@ export class NeDbClient extends DatabaseClient {
     options: FindOneAndUpdateOptions = {},
   ) {
     const currentCollection = this._collections[collection] as Datastore<T>;
+    const currentSchema = this._schemas[collection];
 
     const qOptions: DefaultUpdateOption = {
       ...options,
@@ -230,24 +251,29 @@ export class NeDbClient extends DatabaseClient {
       returnUpdatedDocs: true,
     };
 
-    const data = await this.findOne<T>(collection, query);
+    const oldDoc = await this.findOne<T>(collection, query);
 
-    if (!data) {
+    if (!oldDoc) {
       if (qOptions.upsert) {
-        const newDoc = await currentCollection.insertAsync(updateQuery);
+        // get toBeInserted doc and validate
+        const toBeInserted = await returnNewDocAndValidateUpserting<T>(
+          currentSchema,
+          query,
+          updateQuery,
+        );
+        const newDoc = await currentCollection.insertAsync(toBeInserted);
         return newDoc;
       } else {
         return null;
       }
     } else {
-      let currentUQ: any = {
-        $set: updateQuery,
-      };
+      const currentUQ = await validateDocAndReturnQOnUpdate(
+        currentSchema,
+        oldDoc,
+        updateQuery,
+        options.overwrite,
+      );
 
-      // if has any operator do updatequery
-      if (qOptions.overwrite || hasOperator(updateQuery)) {
-        currentUQ = updateQuery;
-      }
       const { affectedDocuments, upsert, numAffected } =
         await currentCollection.updateAsync(query, currentUQ, qOptions);
 
@@ -371,8 +397,9 @@ export class NeDbClient extends DatabaseClient {
     let dbLocation = NeDbClient.urlToPath(url);
 
     let collections = {};
+    let schemas = {};
 
-    return new NeDbClient(dbLocation, collections, options);
+    return new NeDbClient(dbLocation, collections, schemas, options);
   }
 
   /**

@@ -65,7 +65,7 @@ var DatabaseClient = class {
 
 // src/clients/NedbClient.ts
 var import_nedb2 = __toESM(require("@seald-io/nedb"), 1);
-var import_model2 = require("@seald-io/nedb/lib/model");
+var import_model4 = require("@seald-io/nedb/lib/model");
 
 // src/Cursor.ts
 var import_cursor = __toESM(require("@seald-io/nedb/lib/cursor"), 1);
@@ -83,15 +83,22 @@ var Cursor = class extends import_cursor.default {
 };
 
 // src/utils/hasOperator.ts
-var isOperator = (key) => key.startsWith("$");
-function hasOperator(query) {
-  const keys = Object.keys(query);
-  return keys.findIndex(isOperator) > -1 ? true : false;
+var import_model = require("@seald-io/nedb/lib/model");
+function hasOperator(obj) {
+  try {
+    (0, import_model.checkObject)(obj);
+    return false;
+  } catch (error) {
+    return true;
+  }
 }
+
+// src/createModel.ts
+var import_yup = require("yup");
 
 // src/Aggregation.ts
 var import_nedb = __toESM(require("@seald-io/nedb"), 1);
-var import_model = require("@seald-io/nedb/lib/model");
+var import_model2 = require("@seald-io/nedb/lib/model");
 var import_lodash2 = __toESM(require("lodash"), 1);
 
 // src/utils/RighJoiner.ts
@@ -170,7 +177,7 @@ var Aggregation = class _Aggregation {
     if (this.currentCS !== null) {
       await this.updateCursorsDatastore();
       this.currentCS.query = params;
-      this.currentCS.mapFn = (docs) => docs.map((doc) => (0, import_model.deepCopy)(doc));
+      this.currentCS.mapFn = (docs) => docs.map((doc) => (0, import_model2.deepCopy)(doc));
     } else {
       this.currentCS = this.currentDS.findAsync(params);
     }
@@ -249,7 +256,7 @@ var Aggregation = class _Aggregation {
     const { from, localField, foreignField, as, pipeline = [] } = params;
     const foreignDS = getClient()._collections[from];
     const localFieldKeys = import_lodash2.default.uniq(
-      docs.map((d) => (0, import_model.getDotValue)(d, localField))
+      docs.map((d) => (0, import_model2.getDotValue)(d, localField))
     ).flat();
     let foreignDocs = [];
     if (typeof foreignDS !== "undefined") {
@@ -358,6 +365,9 @@ function createBaseModel(name, schema) {
     static schema = schema;
     constructor() {
     }
+    static async validate(values) {
+      await this.schema.validate(values);
+    }
     /**
      * Find one document in current collection
      *
@@ -376,10 +386,20 @@ function createBaseModel(name, schema) {
      *
      */
     static findOneUpdate(query, updateQuery, options) {
-      return getClient().findOneAndUpdate(this.collectionName, query, updateQuery, options);
+      return getClient().findOneAndUpdate(
+        this.collectionName,
+        query,
+        updateQuery,
+        options
+      );
     }
     static findByIdAndUpdate(id, updateQuery, options) {
-      return getClient().findByIdAndUpdate(this.collectionName, id, updateQuery, options);
+      return getClient().findByIdAndUpdate(
+        this.collectionName,
+        id,
+        updateQuery,
+        options
+      );
     }
     static find(query = {}, options = {}) {
       return getClient().find(this.collectionName, query, options);
@@ -442,8 +462,16 @@ function createBaseModel(name, schema) {
 }
 
 // src/createModel.ts
+var baseDbSchema = (0, import_yup.object)({
+  _id: (0, import_yup.string)().transform((v) => v.toString()).notRequired(),
+  createdAt: (0, import_yup.date)().notRequired(),
+  updatedAt: (0, import_yup.date)().notRequired()
+});
 function createModel(collectionName, schema) {
-  const BaseModel = createBaseModel(collectionName, schema);
+  const mergedSchema = baseDbSchema.concat(
+    schema
+  );
+  const BaseModel = createBaseModel(collectionName, mergedSchema);
   class Model extends BaseModel {
     values;
     constructor(values) {
@@ -460,10 +488,11 @@ function createModel(collectionName, schema) {
     /**
      * Save (upsert) document
      */
-    async save() {
+    async save(options = { validateBeforeSave: true }) {
       const res = await getClient().save(
         collectionName,
         this.values,
+        options,
         this.values._id
       );
       if (res !== null) {
@@ -481,20 +510,46 @@ function createModel(collectionName, schema) {
   return Model;
 }
 
+// src/utils.ts
+var import_model3 = __toESM(require("@seald-io/nedb/lib/model"), 1);
+async function returnNewDocAndValidateUpserting(schema, query, updateQ) {
+  let toBeInserted;
+  try {
+    import_model3.default.checkObject(updateQ);
+    toBeInserted = updateQ;
+  } catch (e) {
+    toBeInserted = import_model3.default.modify(import_model3.default.deepCopy(query, true), updateQ);
+  }
+  await schema.validate(toBeInserted);
+  return toBeInserted;
+}
+async function validateDocAndReturnQOnUpdate(schema, oldDoc, updateQ, overwrite) {
+  console.log("overwrite : ", overwrite, hasOperator(updateQ));
+  if (overwrite || hasOperator(updateQ)) {
+    const newDoc = import_model3.default.modify(import_model3.default.deepCopy(oldDoc), updateQ);
+    await schema.validate(newDoc);
+    return updateQ;
+  } else {
+    console.log("deepCopy : ", import_model3.default.deepCopy(oldDoc));
+    console.log("updateQ: ", updateQ);
+    console.log("oldDoc : ", oldDoc);
+    await schema.partial().validate(updateQ);
+    return { $set: updateQ };
+  }
+}
+
 // src/clients/NedbClient.ts
 var NeDbClient = class _NeDbClient extends DatabaseClient {
   _path;
   _collections;
+  _schemas;
   _options;
-  constructor(url, collections, options) {
+  constructor(url, collections, schemas, options) {
     super(url);
     this._path = _NeDbClient.urlToPath(url);
     this._options = options;
-    if (collections) {
-      this._collections = collections;
-    } else {
-      this._collections = {};
-    }
+    this._collections = collections || {};
+    this._schemas = schemas || {};
   }
   static urlToPath(url) {
     if (url.indexOf("nedb://") > -1) {
@@ -516,14 +571,19 @@ var NeDbClient = class _NeDbClient extends DatabaseClient {
     const ds = new import_nedb2.default({ filename: collectionPath, ...this._options });
     const Model = createModel(name, schema);
     this._collections[name] = ds;
+    this._schemas[name] = Model.schema;
     return Model;
   }
   /**
    * Save (upsert) document
    *
    */
-  async save(collection, values, id) {
+  async save(collection, values, options, id) {
     const currentCollection = this._collections[collection];
+    const currentSchema = this._schemas[collection];
+    if (options.validateBeforeSave) {
+      await currentSchema.validate(values);
+    }
     if (typeof id === "undefined") {
       const result2 = await currentCollection.insertAsync(values);
       return result2;
@@ -580,7 +640,7 @@ var NeDbClient = class _NeDbClient extends DatabaseClient {
     const cursor = new Cursor(
       currentCollection,
       query,
-      (docs) => docs.length === 1 ? (0, import_model2.deepCopy)(docs[0]) : null,
+      (docs) => docs.length === 1 ? (0, import_model4.deepCopy)(docs[0]) : null,
       {
         projection,
         limit: 1
@@ -629,26 +689,32 @@ var NeDbClient = class _NeDbClient extends DatabaseClient {
    */
   async findOneAndUpdate(collection, query, updateQuery, options = {}) {
     const currentCollection = this._collections[collection];
+    const currentSchema = this._schemas[collection];
     const qOptions = {
       ...options,
       multi: false,
       returnUpdatedDocs: true
     };
-    const data = await this.findOne(collection, query);
-    if (!data) {
+    const oldDoc = await this.findOne(collection, query);
+    if (!oldDoc) {
       if (qOptions.upsert) {
-        const newDoc = await currentCollection.insertAsync(updateQuery);
+        const toBeInserted = await returnNewDocAndValidateUpserting(
+          currentSchema,
+          query,
+          updateQuery
+        );
+        const newDoc = await currentCollection.insertAsync(toBeInserted);
         return newDoc;
       } else {
         return null;
       }
     } else {
-      let currentUQ = {
-        $set: updateQuery
-      };
-      if (qOptions.overwrite || hasOperator(updateQuery)) {
-        currentUQ = updateQuery;
-      }
+      const currentUQ = await validateDocAndReturnQOnUpdate(
+        currentSchema,
+        oldDoc,
+        updateQuery,
+        options.overwrite
+      );
       const { affectedDocuments, upsert, numAffected } = await currentCollection.updateAsync(query, currentUQ, qOptions);
       return affectedDocuments;
     }
@@ -689,7 +755,7 @@ var NeDbClient = class _NeDbClient extends DatabaseClient {
     const cursor = new Cursor(
       currentCollection,
       query,
-      (docs) => docs.map((doc) => (0, import_model2.deepCopy)(doc)),
+      (docs) => docs.map((doc) => (0, import_model4.deepCopy)(doc)),
       options
     );
     const results = await cursor;
@@ -749,7 +815,8 @@ var NeDbClient = class _NeDbClient extends DatabaseClient {
   static connect(url, options) {
     let dbLocation = _NeDbClient.urlToPath(url);
     let collections = {};
-    return new _NeDbClient(dbLocation, collections, options);
+    let schemas = {};
+    return new _NeDbClient(dbLocation, collections, schemas, options);
   }
   /**
    * Close current connection

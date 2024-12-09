@@ -1,7 +1,10 @@
-const isOperator = (key: string): boolean => key.startsWith("$");
+import { checkObject } from "@seald-io/nedb/lib/model";
 
-export default function hasOperator(query: Record<string, any>) {
-  const keys = Object.keys(query);
-
-  return keys.findIndex(isOperator) > -1 ? true : false;
+export default function hasOperator(obj: any) {
+  try {
+    checkObject(obj);
+    return false;
+  } catch (error) {
+    return true;
+  }
 }

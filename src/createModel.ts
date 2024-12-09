@@ -1,33 +1,46 @@
-import { ObjectSchema } from "yup";
+import { AnyObject, date, InferType, object, ObjectSchema, string } from "yup";
 import { getClient as db } from "./clients";
 import Aggregation from "./Aggregation";
 import createBaseModel from "./createBaseModel";
-import { DBFields } from "./types";
+import { SaveOptions } from "./types";
+
+const baseDbSchema = object({
+  _id: string()
+    .transform((v) => v.toString())
+    .notRequired(),
+  createdAt: date().notRequired(),
+  updatedAt: date().notRequired(),
+});
 
 // Classı fonksiyon içine aldık çünkü T type ını
 // tanımlama aşamasında static methodlara atayamıyoruz.
-export function createModel<T extends DBFields>(
+export function createModel<T extends AnyObject>(
   collectionName: string,
   schema: ObjectSchema<T>,
 ) {
-  const BaseModel = createBaseModel<T>(collectionName, schema);
+  type TWithDSchema = InferType<typeof baseDbSchema> & T;
+
+  // @ts-ignore
+  // TODO: I cant concat without type error maybe we can fix later
+  const mergedSchema = baseDbSchema.concat(
+    schema,
+  ) as ObjectSchema<TWithDSchema>;
+
+  const BaseModel = createBaseModel<TWithDSchema>(collectionName, mergedSchema);
 
   class Model extends BaseModel {
-    values: T & DBFields;
+    values: TWithDSchema;
 
-    constructor(values: T & DBFields) {
+    constructor(values: TWithDSchema) {
       super();
       this.values = values;
     }
 
-    get<K extends keyof (T & DBFields)>(key: K): (T & DBFields)[K] {
+    get<K extends keyof TWithDSchema>(key: K): TWithDSchema[K] {
       return this.values[key];
     }
 
-    set<K extends keyof (T & DBFields)>(
-      key: K,
-      value: (T & DBFields)[K],
-    ): T[K] {
+    set<K extends keyof TWithDSchema>(key: K, value: TWithDSchema[K]): T[K] {
       this.values[key] = value;
       return this.values[key];
     }
@@ -35,10 +48,11 @@ export function createModel<T extends DBFields>(
     /**
      * Save (upsert) document
      */
-    async save() {
-      const res = await db().save<T>(
+    async save(options: SaveOptions = { validateBeforeSave: true }) {
+      const res = await db().save<TWithDSchema>(
         collectionName,
         this.values,
+        options,
         this.values._id,
       );
       if (res !== null) {

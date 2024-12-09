@@ -5,8 +5,6 @@ export default abstract class DatabaseClient {
     this._url = url;
   }
 
-  abstract save(collection: string, values: any, id: string): void;
-
   abstract delete(collection: string, id: string): void;
 
   abstract deleteOne(collection, query): void;
@@ -49,4 +47,3 @@ export default abstract class DatabaseClient {
 
   abstract driver(): void;
 }
-
