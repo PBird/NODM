@@ -58,8 +58,6 @@ describe("Document", () => {
   });
 
   test("Should delete Doc", async () => {
-    const User = db.model("user", userSchema);
-
     const userData = {
       age: 2,
       name: "willbedeleted",
@@ -76,9 +74,6 @@ describe("Document", () => {
   });
 
   test("Should deleteOne", async () => {
-    const User = db.model("user", userSchema);
-    const Category = db.model("category", categoySchema);
-
     const userData = {
       age: 2,
       name: "deleteOneName",
@@ -102,14 +97,10 @@ describe("Document", () => {
   });
 
   test("Should findOne", async () => {
-    const User = db.model("user", userSchema);
-
     const a = await User.findOne({ name: "deneme" }, {});
   });
 
   test("Should aggregate func run", async () => {
-    const User = db.model("user", userSchema);
-
     const a = await User.aggregate([
       { $match: { name: "deneme" } },
 
@@ -118,7 +109,6 @@ describe("Document", () => {
   });
 
   test("Should findOne and update ", async () => {
-    const User = db.model("user", userSchema);
     const deneme = await User.findOneUpdate(
       { name: "deneme" },
       { name: "changedName" },
@@ -128,14 +118,12 @@ describe("Document", () => {
   });
 
   test("Should findOneAndDelete ", async () => {
-    const User = db.model("user", userSchema);
     const numRemoved = await User.findOneAndDelete({ name: "deneme" });
 
     expect(numRemoved).toEqual(1);
   });
 
   test("Should find ", async () => {
-    const User = db.model("user", userSchema);
     const docs = await User.find();
 
     expect(Array.isArray(docs)).toBeTruthy();
