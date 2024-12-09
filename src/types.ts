@@ -1,4 +1,5 @@
 import { createDSModel } from "./createDSModel";
+import { DBFields } from "./Model";
 
 export interface CursorOptions {
   limit?: number;
@@ -9,8 +10,22 @@ export interface CursorOptions {
 
 export interface FindOptions extends CursorOptions {}
 
-export interface FindOneAndUpdateOptions {
+export interface DefaultUpdateOption {
   upsert?: boolean;
+  overwrite?: boolean;
+  multi?: boolean;
+  returnUpdatedDocs: true;
 }
 
-export type CollectionModel = ReturnType<typeof createDSModel>;
+export interface UpdateOptions {
+  upsert?: boolean;
+  overwrite?: boolean;
+}
+
+export interface UpdateManyOptions extends UpdateOptions {}
+
+export interface FindOneAndUpdateOptions extends UpdateOptions {}
+
+export type CollectionModel<T extends DBFields> = ReturnType<
+  typeof createDSModel<T>
+>;

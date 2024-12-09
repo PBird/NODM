@@ -11,9 +11,11 @@ export type DBFields = {
 export default class Model<T extends DBFields> {
   static _name: string;
   _name: string;
+  schema: ObjectSchema<T>;
   values: T & DBFields;
 
-  constructor(name: string, values: T & DBFields) {
+  constructor(name: string, schema: ObjectSchema<T>, values: T & DBFields) {
+    this.schema = schema;
     this._name = name;
     this.values = values;
   }

@@ -2,8 +2,12 @@ import { ObjectSchema } from "yup";
 import Model, { DBFields } from "./Model";
 import { getClient as db } from "./clients";
 import Aggregation from "./Aggregation";
-import { FindOneAndUpdateOptions, FindOptions } from "./types";
+import { FindOneAndUpdateOptions, FindOptions, UpdateOptions } from "./types";
+import Datastore from "@seald-io/nedb";
 
+// Classı fonksiyon içine aldık çünkü T type ını
+// tanımlama aşamasında static methodlara atayamıyoruz.
+//
 export function createDSModel<T extends DBFields>(
   name: string,
   schema: ObjectSchema<T>,
@@ -13,7 +17,7 @@ export function createDSModel<T extends DBFields>(
     static schema = schema;
 
     constructor(values: T) {
-      super(name, values);
+      super(name, schema, values);
     }
 
     /**
@@ -36,18 +40,18 @@ export function createDSModel<T extends DBFields>(
      */
     static findOneUpdate(
       query: object,
-      values: any,
-      options: FindOneAndUpdateOptions = { upsert: false },
+      updateQuery: any,
+      options?: FindOneAndUpdateOptions,
     ) {
-      return db().findOneAndUpdate<T>(this._name, query, values, options);
+      return db().findOneAndUpdate<T>(this._name, query, updateQuery, options);
     }
 
     static findByIdAndUpdate(
       id: string,
-      values: any,
-      options: FindOneAndUpdateOptions = { upsert: false },
+      updateQuery: any,
+      options?: FindOneAndUpdateOptions,
     ) {
-      return db().findByIdAndUpdate<T>(this._name, id, values, options);
+      return db().findByIdAndUpdate<T>(this._name, id, updateQuery, options);
     }
 
     static find(query = {}, options: FindOptions = {}) {
@@ -74,6 +78,17 @@ export function createDSModel<T extends DBFields>(
     }
 
     /**
+     * Find one document and update it in current collection
+     * if doc exist it will update and return it
+     * if upsert true and doc not exist: return  new doc
+     * if upsert false and doc not exist: return null
+     *
+     */
+    static updateMany(query: object, values: any, options?: UpdateOptions) {
+      return db().updateMany<T>(this._name, query, values, options);
+    }
+
+    /**
      * Delete many documents in current collection
      */
     static async deleteOne(query: object) {
@@ -87,6 +102,10 @@ export function createDSModel<T extends DBFields>(
     static async deleteMany(query: object) {
       const numRemoved = await db().deleteMany(this._name, query);
       return numRemoved;
+    }
+
+    static ensureIndex(options: Datastore.EnsureIndexOptions) {
+      return db().ensureIndex<T>(this._name, options);
     }
 
     static async aggregate(pipeline: any[]): Promise<any[]> {

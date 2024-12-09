@@ -2,8 +2,8 @@
   "name": "@pbird/nodm",
   "type": "module",
   "version": "0.0.1",
-  "main": "dist/index.js",
-  "module": "dist/index.mjs",
+  "main": "src/index.ts",
+  "types": "dist/index.d.ts",
   "files": [
     "/dist",
     "/@types"
@@ -13,7 +13,6 @@
     "dev": "tsup --watch",
     "test": "jest"
   },
-  "types": "dist/index.d.ts",
   "devDependencies": {
     "@types/jest": "^29.5.14",
     "@types/lodash": "^4.17.13",

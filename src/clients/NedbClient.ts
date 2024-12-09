@@ -6,7 +6,15 @@ import _ from "lodash";
 import { ObjectSchema } from "yup";
 import { createDSModel } from "../createDSModel";
 import Cursor from "../Cursor";
-import { FindOneAndUpdateOptions, FindOptions } from "../types";
+import {
+  DefaultUpdateOption,
+  FindOneAndUpdateOptions,
+  FindOptions,
+  UpdateManyOptions,
+  UpdateOptions,
+} from "../types";
+import { Options } from "tsup";
+import hasOperator from "../utils/hasOperator";
 
 export type NeDbClientOptions = Omit<
   Datastore.DataStoreOptions,
@@ -157,6 +165,50 @@ export class NeDbClient extends DatabaseClient {
   }
 
   /**
+   * update all documents that match query (as opposed to just the first one)
+   * regardless of the value of the multi option
+   *
+   */
+  async updateMany<T extends object>(
+    collection: string,
+    query: object,
+    updateQuery: T,
+    options: UpdateManyOptions = {},
+  ) {
+    const currentCollection = this._collections[collection] as Datastore<T>;
+
+    const qOptions: DefaultUpdateOption = {
+      ...options,
+      multi: true,
+      returnUpdatedDocs: true,
+    };
+
+    const data = await this.findOne<T>(collection, query);
+
+    if (!data) {
+      if (qOptions.upsert) {
+        const newDoc = await currentCollection.insertAsync(updateQuery);
+        return newDoc;
+      } else {
+        return null;
+      }
+    } else {
+      let currentUQ: any = {
+        $set: updateQuery,
+      };
+
+      // if has any operator do updatequery
+      if (qOptions.overwrite || hasOperator(updateQuery)) {
+        currentUQ = updateQuery;
+      }
+      const { affectedDocuments, upsert, numAffected } =
+        await currentCollection.updateAsync(query, updateQuery, qOptions);
+
+      return affectedDocuments;
+    }
+  }
+
+  /**
    * Find one document and update it
    *
    * if doc exist it will update and return it
@@ -164,55 +216,57 @@ export class NeDbClient extends DatabaseClient {
    * if upsert false and doc not exist: return null
    *
    */
-  async findOneAndUpdate<T>(
+  async findOneAndUpdate<T extends object>(
     collection: string,
     query: object,
-    values: T,
-    options: FindOneAndUpdateOptions,
+    updateQuery: T,
+    options: FindOneAndUpdateOptions = {},
   ) {
     const currentCollection = this._collections[collection] as Datastore<T>;
 
-    const qOptions: {
-      upsert?: boolean;
-      multi: false;
-      returnUpdatedDocs: true;
-    } = {
+    const qOptions: DefaultUpdateOption = {
       ...options,
       multi: false,
       returnUpdatedDocs: true,
     };
 
-    // Nedb'nin kendi findOne ı buglı eğer birden fazla döküman varsa null dönüor
     const data = await this.findOne<T>(collection, query);
 
     if (!data) {
       if (qOptions.upsert) {
-        const newDoc = await currentCollection.insertAsync(values);
+        const newDoc = await currentCollection.insertAsync(updateQuery);
         return newDoc;
       } else {
         return null;
       }
     } else {
+      let currentUQ: any = {
+        $set: updateQuery,
+      };
+
+      // if has any operator do updatequery
+      if (qOptions.overwrite || hasOperator(updateQuery)) {
+        currentUQ = updateQuery;
+      }
       const { affectedDocuments, upsert, numAffected } =
-        await currentCollection.updateAsync(
-          query,
-          {
-            $set: values,
-          },
-          qOptions,
-        );
+        await currentCollection.updateAsync(query, currentUQ, qOptions);
 
       return affectedDocuments;
     }
   }
 
-  async findByIdAndUpdate<T>(
+  async findByIdAndUpdate<T extends object>(
     collection: string,
     id: string,
-    values: T,
-    options: FindOneAndUpdateOptions,
+    updateQuery: T,
+    options: FindOneAndUpdateOptions = {},
   ) {
-    return this.findOneAndUpdate<T>(collection, { _id: id }, values, options);
+    return this.findOneAndUpdate<T>(
+      collection,
+      { _id: id },
+      updateQuery,
+      options,
+    );
   }
 
   /**
@@ -254,6 +308,16 @@ export class NeDbClient extends DatabaseClient {
 
     const results = (await cursor) as T[];
     return results;
+  }
+
+  /**
+   * ensureIndex documents
+   *
+   */
+  async ensureIndex<T>(collection: any, options: Datastore.EnsureIndexOptions) {
+    const currentCollection = this._collections[collection] as Datastore<T>;
+
+    await currentCollection.ensureIndexAsync(options);
   }
 
   /**

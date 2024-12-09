@@ -64,8 +64,8 @@ declare function createDSModel<T extends DBFields>(name: string, schema: ObjectS
      * if upsert false and doc not exist: return null
      *
      */
-    findOneUpdate(query: object, values: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
-    findByIdAndUpdate(id: string, values: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
+    findOneUpdate(query: object, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
+    findByIdAndUpdate(id: string, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
     find(query?: {}, options?: FindOptions): Promise<T[]>;
     /**
      *
@@ -81,6 +81,14 @@ declare function createDSModel<T extends DBFields>(name: string, schema: ObjectS
      */
     findByIdAndDelete(id: string): Promise<number>;
     /**
+     * Find one document and update it in current collection
+     * if doc exist it will update and return it
+     * if upsert true and doc not exist: return  new doc
+     * if upsert false and doc not exist: return null
+     *
+     */
+    updateMany(query: object, values: any, options?: UpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
+    /**
      * Delete many documents in current collection
      */
     deleteOne(query: object): Promise<number>;
@@ -88,6 +96,7 @@ declare function createDSModel<T extends DBFields>(name: string, schema: ObjectS
      * Delete one document in current collection
      */
     deleteMany(query: object): Promise<number>;
+    ensureIndex(options: _seald_io_nedb__default.EnsureIndexOptions): Promise<void>;
     aggregate(pipeline: any[]): Promise<any[]>;
 };
 
@@ -103,10 +112,15 @@ interface CursorOptions {
 }
 interface FindOptions extends CursorOptions {
 }
-interface FindOneAndUpdateOptions {
+interface UpdateOptions {
     upsert?: boolean;
+    overwrite?: boolean;
 }
-type CollectionModel = ReturnType<typeof createDSModel>;
+interface UpdateManyOptions extends UpdateOptions {
+}
+interface FindOneAndUpdateOptions extends UpdateOptions {
+}
+type CollectionModel<T extends DBFields> = ReturnType<typeof createDSModel<T>>;
 
 declare class Cursor<T> extends NeDbCursor {
     constructor(db: _seald_io_nedb__default<T>, query: object, mapFn: any, options: CursorOptions);
@@ -137,13 +151,15 @@ declare class NeDbClient extends DatabaseClient {
         findOne(query: object, projection?: {
             [key: string]: number;
         }): Cursor<T>;
-        findOneUpdate(query: object, values: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
-        findByIdAndUpdate(id: string, values: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
+        findOneUpdate(query: object, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
+        findByIdAndUpdate(id: string, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
         find(query?: {}, options?: FindOptions): Promise<T[]>;
         findOneAndDelete(query: object): Promise<number>;
         findByIdAndDelete(id: string): Promise<number>;
+        updateMany(query: object, values: any, options?: UpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
         deleteOne(query: object): Promise<number>;
         deleteMany(query: object): Promise<number>;
+        ensureIndex(options: _seald_io_nedb__default.EnsureIndexOptions): Promise<void>;
         aggregate(pipeline: any[]): Promise<any[]>;
     };
     /**
@@ -172,6 +188,12 @@ declare class NeDbClient extends DatabaseClient {
         [key: string]: number;
     }): Cursor<T>;
     /**
+     * update all documents that match query (as opposed to just the first one)
+     * regardless of the value of the multi option
+     *
+     */
+    updateMany<T extends object>(collection: string, query: object, updateQuery: T, options?: UpdateManyOptions): Promise<_seald_io_nedb.Document<T> | null>;
+    /**
      * Find one document and update it
      *
      * if doc exist it will update and return it
@@ -179,8 +201,8 @@ declare class NeDbClient extends DatabaseClient {
      * if upsert false and doc not exist: return null
      *
      */
-    findOneAndUpdate<T>(collection: string, query: object, values: T, options: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
-    findByIdAndUpdate<T>(collection: string, id: string, values: T, options: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
+    findOneAndUpdate<T extends object>(collection: string, query: object, updateQuery: T, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
+    findByIdAndUpdate<T extends object>(collection: string, id: string, updateQuery: T, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
     /**
      * Find one document and delete it
      *
@@ -197,6 +219,11 @@ declare class NeDbClient extends DatabaseClient {
      *
      */
     find<T>(collection: any, query: object, options: FindOptions): Promise<T[]>;
+    /**
+     * ensureIndex documents
+     *
+     */
+    ensureIndex<T>(collection: any, options: _seald_io_nedb__default.EnsureIndexOptions): Promise<void>;
     /**
      * Get count of collection by query
      *

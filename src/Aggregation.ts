@@ -183,14 +183,14 @@ export default class Aggregation {
     }
 
     const { from, localField, foreignField, as, pipeline = [] } = params;
-    const foreignModel = db()._collections[from];
+    const foreignDS = db()._collections[from];
 
     const localFieldKeys = _.uniq(
       docs.map((d) => getDotValue(d, localField)),
     ).flat();
 
     let foreignDocs = [];
-    if (typeof foreignModel !== "undefined") {
+    if (typeof foreignDS !== "undefined") {
       const foreignPipeline = [
         {
           $match: {
@@ -198,9 +198,12 @@ export default class Aggregation {
           },
         },
       ];
-      foreignDocs = await foreignModel.aggregate(
-        foreignPipeline.concat(pipeline),
-      );
+      const newAggregation = new Aggregation({
+        ds: foreignDS,
+        pipeline: foreignPipeline.concat(pipeline),
+        cs: null,
+      });
+      foreignDocs = await newAggregation.run();
     } else {
       throw new Error("Foreign model doesn't have aggregate function");
     }

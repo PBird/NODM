@@ -222,12 +222,12 @@ var Aggregation = class _Aggregation {
       docs = await this.updateCursorsDatastore();
     }
     const { from, localField, foreignField, as, pipeline = [] } = params;
-    const foreignModel = getClient()._collections[from];
+    const foreignDS = getClient()._collections[from];
     const localFieldKeys = _2.uniq(
       docs.map((d) => getDotValue(d, localField))
     ).flat();
     let foreignDocs = [];
-    if (typeof foreignModel !== "undefined") {
+    if (typeof foreignDS !== "undefined") {
       const foreignPipeline = [
         {
           $match: {
@@ -235,9 +235,12 @@ var Aggregation = class _Aggregation {
           }
         }
       ];
-      foreignDocs = await foreignModel.aggregate(
-        foreignPipeline.concat(pipeline)
-      );
+      const newAggregation = new _Aggregation({
+        ds: foreignDS,
+        pipeline: foreignPipeline.concat(pipeline),
+        cs: null
+      });
+      foreignDocs = await newAggregation.run();
     } else {
       throw new Error("Foreign model doesn't have aggregate function");
     }
@@ -348,11 +351,11 @@ function createDSModel(name, schema) {
      * if upsert false and doc not exist: return null
      *
      */
-    static findOneUpdate(query, values, options = { upsert: false }) {
-      return getClient().findOneAndUpdate(this._name, query, values, options);
+    static findOneUpdate(query, updateQuery, options) {
+      return getClient().findOneAndUpdate(this._name, query, updateQuery, options);
     }
-    static findByIdAndUpdate(id, values, options = { upsert: false }) {
-      return getClient().findByIdAndUpdate(this._name, id, values, options);
+    static findByIdAndUpdate(id, updateQuery, options) {
+      return getClient().findByIdAndUpdate(this._name, id, updateQuery, options);
     }
     static find(query = {}, options = {}) {
       return getClient().find(this._name, query, options);
@@ -375,6 +378,16 @@ function createDSModel(name, schema) {
       return getClient().findByIdAndDelete(this._name, id);
     }
     /**
+     * Find one document and update it in current collection
+     * if doc exist it will update and return it
+     * if upsert true and doc not exist: return  new doc
+     * if upsert false and doc not exist: return null
+     *
+     */
+    static updateMany(query, values, options) {
+      return getClient().updateMany(this._name, query, values, options);
+    }
+    /**
      * Delete many documents in current collection
      */
     static async deleteOne(query) {
@@ -387,6 +400,9 @@ function createDSModel(name, schema) {
     static async deleteMany(query) {
       const numRemoved = await getClient().deleteMany(this._name, query);
       return numRemoved;
+    }
+    static ensureIndex(options) {
+      return getClient().ensureIndex(this._name, options);
     }
     static async aggregate(pipeline) {
       const aggregateObj = new Aggregation({
@@ -415,6 +431,13 @@ var Cursor = class extends NeDbCursor {
     return super.then(onfulfilled, onrejected);
   }
 };
+
+// src/utils/hasOperator.ts
+var isOperator = (key) => key.startsWith("$");
+function hasOperator(query) {
+  const keys = Object.keys(query);
+  return keys.findIndex(isOperator) > -1 ? true : false;
+}
 
 // src/clients/NedbClient.ts
 var NeDbClient = class _NeDbClient extends DatabaseClient {
@@ -524,6 +547,37 @@ var NeDbClient = class _NeDbClient extends DatabaseClient {
     return cursor;
   }
   /**
+   * update all documents that match query (as opposed to just the first one)
+   * regardless of the value of the multi option
+   *
+   */
+  async updateMany(collection, query, updateQuery, options = {}) {
+    const currentCollection = this._collections[collection];
+    const qOptions = {
+      ...options,
+      multi: true,
+      returnUpdatedDocs: true
+    };
+    const data = await this.findOne(collection, query);
+    if (!data) {
+      if (qOptions.upsert) {
+        const newDoc = await currentCollection.insertAsync(updateQuery);
+        return newDoc;
+      } else {
+        return null;
+      }
+    } else {
+      let currentUQ = {
+        $set: updateQuery
+      };
+      if (qOptions.overwrite || hasOperator(updateQuery)) {
+        currentUQ = updateQuery;
+      }
+      const { affectedDocuments, upsert, numAffected } = await currentCollection.updateAsync(query, updateQuery, qOptions);
+      return affectedDocuments;
+    }
+  }
+  /**
    * Find one document and update it
    *
    * if doc exist it will update and return it
@@ -531,7 +585,7 @@ var NeDbClient = class _NeDbClient extends DatabaseClient {
    * if upsert false and doc not exist: return null
    *
    */
-  async findOneAndUpdate(collection, query, values, options) {
+  async findOneAndUpdate(collection, query, updateQuery, options = {}) {
     const currentCollection = this._collections[collection];
     const qOptions = {
       ...options,
@@ -541,24 +595,29 @@ var NeDbClient = class _NeDbClient extends DatabaseClient {
     const data = await this.findOne(collection, query);
     if (!data) {
       if (qOptions.upsert) {
-        const newDoc = await currentCollection.insertAsync(values);
+        const newDoc = await currentCollection.insertAsync(updateQuery);
         return newDoc;
       } else {
         return null;
       }
     } else {
-      const { affectedDocuments, upsert, numAffected } = await currentCollection.updateAsync(
-        query,
-        {
-          $set: values
-        },
-        qOptions
-      );
+      let currentUQ = {
+        $set: updateQuery
+      };
+      if (qOptions.overwrite || hasOperator(updateQuery)) {
+        currentUQ = updateQuery;
+      }
+      const { affectedDocuments, upsert, numAffected } = await currentCollection.updateAsync(query, currentUQ, qOptions);
       return affectedDocuments;
     }
   }
-  async findByIdAndUpdate(collection, id, values, options) {
-    return this.findOneAndUpdate(collection, { _id: id }, values, options);
+  async findByIdAndUpdate(collection, id, updateQuery, options = {}) {
+    return this.findOneAndUpdate(
+      collection,
+      { _id: id },
+      updateQuery,
+      options
+    );
   }
   /**
    * Find one document and delete it
@@ -593,6 +652,14 @@ var NeDbClient = class _NeDbClient extends DatabaseClient {
     );
     const results = await cursor;
     return results;
+  }
+  /**
+   * ensureIndex documents
+   *
+   */
+  async ensureIndex(collection, options) {
+    const currentCollection = this._collections[collection];
+    await currentCollection.ensureIndexAsync(options);
   }
   /**
    * Get count of collection by query
