@@ -30,39 +30,27 @@ var DatabaseClient = class {
 import Datastore2 from "@seald-io/nedb";
 import { deepCopy as deepCopy2 } from "@seald-io/nedb/lib/model";
 
-// src/Model.ts
-var Model = class {
-  static _name;
-  _name;
-  values;
-  constructor(name, values) {
-    this._name = name;
-    this.values = values;
+// src/Cursor.ts
+import NeDbCursor from "@seald-io/nedb/lib/cursor";
+var Cursor = class extends NeDbCursor {
+  constructor(db, query, mapFn, options) {
+    super(db, query, mapFn);
+    this._limit = options.limit;
+    this._skip = options.skip;
+    this._projection = options.projection;
+    this._sort = options.sort;
   }
-  get(key) {
-    return this.values[key];
-  }
-  set(key, value) {
-    this.values[key] = value;
-    return this.values[key];
-  }
-  /**
-   * Save (upsert) document
-   */
-  async save() {
-    const res = await getClient().save(this._name, this.values, this.values._id);
-    if (res !== null) {
-      this.values = res;
-    }
-  }
-  /**
-   * Delete current document
-   */
-  async delete() {
-    const numRemoved = await getClient().delete(this._name, this.values._id);
-    return numRemoved;
+  then(onfulfilled, onrejected) {
+    return super.then(onfulfilled, onrejected);
   }
 };
+
+// src/utils/hasOperator.ts
+var isOperator = (key) => key.startsWith("$");
+function hasOperator(query) {
+  const keys = Object.keys(query);
+  return keys.findIndex(isOperator) > -1 ? true : false;
+}
 
 // src/Aggregation.ts
 import Datastore from "@seald-io/nedb";
@@ -326,13 +314,12 @@ var Aggregation = class _Aggregation {
   }
 };
 
-// src/createDSModel.ts
-function createDSModel(name, schema) {
-  class DSModel extends Model {
-    static _name = name;
+// src/createBaseModel.ts
+function createBaseModel(name, schema) {
+  class BaseModel {
+    static collectionName = name;
     static schema = schema;
-    constructor(values) {
-      super(name, values);
+    constructor() {
     }
     /**
      * Find one document in current collection
@@ -342,7 +329,7 @@ function createDSModel(name, schema) {
      *
      */
     static findOne(query, projection = {}) {
-      return getClient().findOne(this._name, query, projection);
+      return getClient().findOne(this.collectionName, query, projection);
     }
     /**
      * Find one document and update it in current collection
@@ -352,20 +339,20 @@ function createDSModel(name, schema) {
      *
      */
     static findOneUpdate(query, updateQuery, options) {
-      return getClient().findOneAndUpdate(this._name, query, updateQuery, options);
+      return getClient().findOneAndUpdate(this.collectionName, query, updateQuery, options);
     }
     static findByIdAndUpdate(id, updateQuery, options) {
-      return getClient().findByIdAndUpdate(this._name, id, updateQuery, options);
+      return getClient().findByIdAndUpdate(this.collectionName, id, updateQuery, options);
     }
     static find(query = {}, options = {}) {
-      return getClient().find(this._name, query, options);
+      return getClient().find(this.collectionName, query, options);
     }
     /**
      *
      * Find one document and delete it in current collection
      */
     static findOneAndDelete(query) {
-      return getClient().findOneAndDelete(this._name, query);
+      return getClient().findOneAndDelete(this.collectionName, query);
     }
     /**
      * Find document by id and delete it
@@ -375,7 +362,7 @@ function createDSModel(name, schema) {
      *
      */
     static findByIdAndDelete(id) {
-      return getClient().findByIdAndDelete(this._name, id);
+      return getClient().findByIdAndDelete(this.collectionName, id);
     }
     /**
      * Find one document and update it in current collection
@@ -385,28 +372,28 @@ function createDSModel(name, schema) {
      *
      */
     static updateMany(query, values, options) {
-      return getClient().updateMany(this._name, query, values, options);
+      return getClient().updateMany(this.collectionName, query, values, options);
     }
     /**
      * Delete many documents in current collection
      */
     static async deleteOne(query) {
-      const numRemoved = await getClient().deleteOne(this._name, query);
+      const numRemoved = await getClient().deleteOne(this.collectionName, query);
       return numRemoved;
     }
     /**
      * Delete one document in current collection
      */
     static async deleteMany(query) {
-      const numRemoved = await getClient().deleteMany(this._name, query);
+      const numRemoved = await getClient().deleteMany(this.collectionName, query);
       return numRemoved;
     }
     static ensureIndex(options) {
-      return getClient().ensureIndex(this._name, options);
+      return getClient().ensureIndex(this.collectionName, options);
     }
     static async aggregate(pipeline) {
       const aggregateObj = new Aggregation({
-        ds: getClient()._collections[name],
+        ds: getClient()._collections[this.collectionName],
         cs: null,
         pipeline
       });
@@ -414,29 +401,47 @@ function createDSModel(name, schema) {
       return data;
     }
   }
-  return DSModel;
+  return BaseModel;
 }
 
-// src/Cursor.ts
-import NeDbCursor from "@seald-io/nedb/lib/cursor";
-var Cursor = class extends NeDbCursor {
-  constructor(db, query, mapFn, options) {
-    super(db, query, mapFn);
-    this._limit = options.limit;
-    this._skip = options.skip;
-    this._projection = options.projection;
-    this._sort = options.sort;
+// src/createModel.ts
+function createModel(collectionName, schema) {
+  const BaseModel = createBaseModel(collectionName, schema);
+  class Model extends BaseModel {
+    values;
+    constructor(values) {
+      super();
+      this.values = values;
+    }
+    get(key) {
+      return this.values[key];
+    }
+    set(key, value) {
+      this.values[key] = value;
+      return this.values[key];
+    }
+    /**
+     * Save (upsert) document
+     */
+    async save() {
+      const res = await getClient().save(
+        collectionName,
+        this.values,
+        this.values._id
+      );
+      if (res !== null) {
+        this.values = res;
+      }
+    }
+    /**
+     * Delete current document
+     */
+    async delete() {
+      const numRemoved = await getClient().delete(collectionName, this.values._id);
+      return numRemoved;
+    }
   }
-  then(onfulfilled, onrejected) {
-    return super.then(onfulfilled, onrejected);
-  }
-};
-
-// src/utils/hasOperator.ts
-var isOperator = (key) => key.startsWith("$");
-function hasOperator(query) {
-  const keys = Object.keys(query);
-  return keys.findIndex(isOperator) > -1 ? true : false;
+  return Model;
 }
 
 // src/clients/NedbClient.ts
@@ -472,9 +477,9 @@ var NeDbClient = class _NeDbClient extends DatabaseClient {
     }
     let collectionPath = this.getCollectionPath(name);
     const ds = new Datastore2({ filename: collectionPath, ...this._options });
-    const DSModel = createDSModel(name, schema);
+    const Model = createModel(name, schema);
     this._collections[name] = ds;
-    return DSModel;
+    return Model;
   }
   /**
    * Save (upsert) document

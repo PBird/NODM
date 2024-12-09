@@ -21,6 +21,5 @@ node_modules
 .idea
 npm-debug.log.*
 
-// test files output
-src/__tests__/dbFiles
+src/__test__/dbFiles
 

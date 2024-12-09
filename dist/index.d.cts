@@ -4,11 +4,68 @@ import * as yup from 'yup';
 import { ObjectSchema } from 'yup';
 import NeDbCursor from '@seald-io/nedb/lib/cursor';
 
+declare class Cursor<T> extends NeDbCursor {
+    constructor(db: _seald_io_nedb__default<T>, query: object, mapFn: any, options: CursorOptions);
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T | null) => TResult1 | PromiseLike<TResult1>) | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null): Promise<TResult1 | TResult2>;
+}
+
+declare function createModel<T extends DBFields>(collectionName: string, schema: ObjectSchema<T>): {
+    new (values: T & DBFields): {
+        values: T & DBFields;
+        get<K extends keyof (T & DBFields)>(key: K): (T & DBFields)[K];
+        set<K extends keyof (T & DBFields)>(key: K, value: (T & DBFields)[K]): T[K];
+        /**
+         * Save (upsert) document
+         */
+        save(): Promise<void>;
+        /**
+         * Delete current document
+         */
+        delete(): Promise<number>;
+    };
+    collectionName: string;
+    schema: ObjectSchema<T, yup.AnyObject, any, "">;
+    findOne(query: object, projection?: {
+        [key: string]: number;
+    }): Cursor<T>;
+    findOneUpdate(query: object, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
+    findByIdAndUpdate(id: string, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
+    find(query?: {}, options?: FindOptions): Promise<T[]>;
+    findOneAndDelete(query: object): Promise<number>;
+    findByIdAndDelete(id: string): Promise<number>;
+    updateMany(query: object, values: any, options?: UpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
+    deleteOne(query: object): Promise<number>;
+    deleteMany(query: object): Promise<number>;
+    ensureIndex(options: _seald_io_nedb.default.EnsureIndexOptions): Promise<void>;
+    aggregate(pipeline: any[]): Promise<any[]>;
+};
+
 type DBFields = {
     _id?: string;
     createdAt?: Date;
     updatedAt?: Date;
 };
+interface CursorOptions {
+    limit?: number;
+    skip?: number;
+    projection?: {
+        [key: string]: number;
+    };
+    sort?: {
+        [key: string]: number;
+    };
+}
+interface FindOptions extends CursorOptions {
+}
+interface UpdateOptions {
+    upsert?: boolean;
+    overwrite?: boolean;
+}
+interface UpdateManyOptions extends UpdateOptions {
+}
+interface FindOneAndUpdateOptions extends UpdateOptions {
+}
+type CollectionModel<T extends DBFields> = ReturnType<typeof createModel<T>>;
 
 declare abstract class DatabaseClient {
     _url: string;
@@ -36,97 +93,6 @@ declare abstract class DatabaseClient {
     abstract driver(): void;
 }
 
-declare function createDSModel<T extends DBFields>(name: string, schema: ObjectSchema<T>): {
-    new (values: T): {
-        _name: string;
-        values: T & DBFields;
-        get<K extends keyof DBFields | keyof T>(key: K): (T & DBFields)[K];
-        set<K extends keyof DBFields | keyof T>(key: K, value: (T & DBFields)[K]): T[K];
-        save(): Promise<void>;
-        delete(): Promise<number>;
-    };
-    _name: string;
-    schema: ObjectSchema<T, yup.AnyObject, any, "">;
-    /**
-     * Find one document in current collection
-     *
-     * TODO: Need options to specify whether references should be loaded
-     * populate options will add
-     *
-     */
-    findOne(query: object, projection?: {
-        [key: string]: number;
-    }): Cursor<T>;
-    /**
-     * Find one document and update it in current collection
-     * if doc exist it will update and return it
-     * if upsert true and doc not exist: return  new doc
-     * if upsert false and doc not exist: return null
-     *
-     */
-    findOneUpdate(query: object, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
-    findByIdAndUpdate(id: string, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
-    find(query?: {}, options?: FindOptions): Promise<T[]>;
-    /**
-     *
-     * Find one document and delete it in current collection
-     */
-    findOneAndDelete(query: object): Promise<number>;
-    /**
-     * Find document by id and delete it
-     *
-     * findOneAndDelete() command by a document's _id field.
-     * In other words, findByIdAndDelete(id) is a shorthand for findOneAndDelete({ _id: id })
-     *
-     */
-    findByIdAndDelete(id: string): Promise<number>;
-    /**
-     * Find one document and update it in current collection
-     * if doc exist it will update and return it
-     * if upsert true and doc not exist: return  new doc
-     * if upsert false and doc not exist: return null
-     *
-     */
-    updateMany(query: object, values: any, options?: UpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
-    /**
-     * Delete many documents in current collection
-     */
-    deleteOne(query: object): Promise<number>;
-    /**
-     * Delete one document in current collection
-     */
-    deleteMany(query: object): Promise<number>;
-    ensureIndex(options: _seald_io_nedb__default.EnsureIndexOptions): Promise<void>;
-    aggregate(pipeline: any[]): Promise<any[]>;
-};
-
-interface CursorOptions {
-    limit?: number;
-    skip?: number;
-    projection?: {
-        [key: string]: number;
-    };
-    sort?: {
-        [key: string]: number;
-    };
-}
-interface FindOptions extends CursorOptions {
-}
-interface UpdateOptions {
-    upsert?: boolean;
-    overwrite?: boolean;
-}
-interface UpdateManyOptions extends UpdateOptions {
-}
-interface FindOneAndUpdateOptions extends UpdateOptions {
-}
-type CollectionModel<T extends DBFields> = ReturnType<typeof createDSModel<T>>;
-
-declare class Cursor<T> extends NeDbCursor {
-    constructor(db: _seald_io_nedb__default<T>, query: object, mapFn: any, options: CursorOptions);
-    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T | null) => TResult1 | PromiseLike<TResult1>) | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null): Promise<TResult1 | TResult2>;
-}
-
 type NeDbClientOptions = Omit<_seald_io_nedb__default.DataStoreOptions, "filename" | "inMemoryOnly">;
 declare class NeDbClient extends DatabaseClient {
     _path: string;
@@ -138,15 +104,14 @@ declare class NeDbClient extends DatabaseClient {
     static urlToPath(url: string): string;
     private getCollectionPath;
     model<T extends Record<string, any>>(name: string, schema: ObjectSchema<T>): {
-        new (values: T): {
-            _name: string;
+        new (values: T & DBFields): {
             values: T & DBFields;
             get<K extends keyof DBFields | keyof T>(key: K): (T & DBFields)[K];
             set<K extends keyof DBFields | keyof T>(key: K, value: (T & DBFields)[K]): T[K];
             save(): Promise<void>;
             delete(): Promise<number>;
         };
-        _name: string;
+        collectionName: string;
         schema: ObjectSchema<T, yup.AnyObject, any, "">;
         findOne(query: object, projection?: {
             [key: string]: number;

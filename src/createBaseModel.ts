@@ -1,24 +1,19 @@
-import { ObjectSchema } from "yup";
-import Model, { DBFields } from "./Model";
-import { getClient as db } from "./clients";
-import Aggregation from "./Aggregation";
-import { FindOneAndUpdateOptions, FindOptions, UpdateOptions } from "./types";
+import { AnyObject, ObjectSchema } from "yup";
 import Datastore from "@seald-io/nedb";
+import { FindOneAndUpdateOptions, FindOptions, UpdateOptions } from "./types";
+import Aggregation from "./Aggregation";
 
-// Classı fonksiyon içine aldık çünkü T type ını
-// tanımlama aşamasında static methodlara atayamıyoruz.
-//
-export function createDSModel<T extends DBFields>(
+import { getClient as db } from "./clients";
+
+export default function createBaseModel<T extends AnyObject>(
   name: string,
   schema: ObjectSchema<T>,
 ) {
-  class DSModel extends Model<T> {
-    static _name = name;
+  class BaseModel {
+    static collectionName = name;
     static schema = schema;
 
-    constructor(values: T) {
-      super(name, schema, values);
-    }
+    constructor() {}
 
     /**
      * Find one document in current collection
@@ -28,7 +23,7 @@ export function createDSModel<T extends DBFields>(
      *
      */
     static findOne(query: object, projection: { [key: string]: number } = {}) {
-      return db().findOne<T>(this._name, query, projection);
+      return db().findOne<T>(this.collectionName, query, projection);
     }
 
     /**
@@ -43,7 +38,7 @@ export function createDSModel<T extends DBFields>(
       updateQuery: any,
       options?: FindOneAndUpdateOptions,
     ) {
-      return db().findOneAndUpdate<T>(this._name, query, updateQuery, options);
+      return db().findOneAndUpdate<T>(this.collectionName, query, updateQuery, options);
     }
 
     static findByIdAndUpdate(
@@ -51,11 +46,11 @@ export function createDSModel<T extends DBFields>(
       updateQuery: any,
       options?: FindOneAndUpdateOptions,
     ) {
-      return db().findByIdAndUpdate<T>(this._name, id, updateQuery, options);
+      return db().findByIdAndUpdate<T>(this.collectionName, id, updateQuery, options);
     }
 
     static find(query = {}, options: FindOptions = {}) {
-      return db().find<T>(this._name, query, options);
+      return db().find<T>(this.collectionName, query, options);
     }
 
     /**
@@ -63,7 +58,7 @@ export function createDSModel<T extends DBFields>(
      * Find one document and delete it in current collection
      */
     static findOneAndDelete(query: object) {
-      return db().findOneAndDelete<T>(this._name, query);
+      return db().findOneAndDelete<T>(this.collectionName, query);
     }
 
     /**
@@ -74,7 +69,7 @@ export function createDSModel<T extends DBFields>(
      *
      */
     static findByIdAndDelete(id: string) {
-      return db().findByIdAndDelete<T>(this._name, id);
+      return db().findByIdAndDelete<T>(this.collectionName, id);
     }
 
     /**
@@ -85,14 +80,14 @@ export function createDSModel<T extends DBFields>(
      *
      */
     static updateMany(query: object, values: any, options?: UpdateOptions) {
-      return db().updateMany<T>(this._name, query, values, options);
+      return db().updateMany<T>(this.collectionName, query, values, options);
     }
 
     /**
      * Delete many documents in current collection
      */
     static async deleteOne(query: object) {
-      const numRemoved = await db().deleteOne(this._name, query);
+      const numRemoved = await db().deleteOne(this.collectionName, query);
       return numRemoved;
     }
 
@@ -100,17 +95,17 @@ export function createDSModel<T extends DBFields>(
      * Delete one document in current collection
      */
     static async deleteMany(query: object) {
-      const numRemoved = await db().deleteMany(this._name, query);
+      const numRemoved = await db().deleteMany(this.collectionName, query);
       return numRemoved;
     }
 
     static ensureIndex(options: Datastore.EnsureIndexOptions) {
-      return db().ensureIndex<T>(this._name, options);
+      return db().ensureIndex<T>(this.collectionName, options);
     }
 
     static async aggregate(pipeline: any[]): Promise<any[]> {
       const aggregateObj = new Aggregation({
-        ds: db()._collections[name],
+        ds: db()._collections[this.collectionName],
         cs: null,
         pipeline,
       });
@@ -119,5 +114,5 @@ export function createDSModel<T extends DBFields>(
     }
   }
 
-  return DSModel;
+  return BaseModel;
 }

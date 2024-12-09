@@ -1,4 +1,3 @@
-import test, { describe } from "node:test";
 import { connect, getClient } from "../";
 import path from "path";
 

@@ -1,5 +1,10 @@
-import { createDSModel } from "./createDSModel";
-import { DBFields } from "./Model";
+import type { createModel } from "./createModel";
+
+export type DBFields = {
+  _id?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+};
 
 export interface CursorOptions {
   limit?: number;
@@ -27,5 +32,5 @@ export interface UpdateManyOptions extends UpdateOptions {}
 export interface FindOneAndUpdateOptions extends UpdateOptions {}
 
 export type CollectionModel<T extends DBFields> = ReturnType<
-  typeof createDSModel<T>
+  typeof createModel<T>
 >;

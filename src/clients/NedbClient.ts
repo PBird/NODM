@@ -4,7 +4,6 @@ import Datastore from "@seald-io/nedb";
 import { deepCopy } from "@seald-io/nedb/lib/model";
 import _ from "lodash";
 import { ObjectSchema } from "yup";
-import { createDSModel } from "../createDSModel";
 import Cursor from "../Cursor";
 import {
   DefaultUpdateOption,
@@ -15,6 +14,7 @@ import {
 } from "../types";
 import { Options } from "tsup";
 import hasOperator from "../utils/hasOperator";
+import { createModel } from "../createModel";
 
 export type NeDbClientOptions = Omit<
   Datastore.DataStoreOptions,
@@ -63,11 +63,11 @@ export class NeDbClient extends DatabaseClient {
     let collectionPath = this.getCollectionPath(name);
     const ds = new Datastore<T>({ filename: collectionPath, ...this._options });
 
-    const DSModel = createDSModel<T>(name, schema);
+    const Model = createModel<T>(name, schema);
 
     this._collections[name] = ds;
 
-    return DSModel;
+    return Model;
   }
 
   /**

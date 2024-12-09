@@ -2,6 +2,7 @@ import path from "path";
 import { getClient, connect } from "../";
 import { object, string, number, date, InferType } from "yup";
 import { NeDbClient } from "../clients/NedbClient";
+import { CollectionModel } from "../types";
 
 let userSchema = object({
   name: string().required(),
@@ -19,22 +20,32 @@ const dbPath = path.join(__dirname, "dbFiles/");
 
 describe("Document", () => {
   let db: NeDbClient;
+
+  let User: CollectionModel<InferType<typeof userSchema>>;
+  let Category: CollectionModel<InferType<typeof categoySchema>>;
+
+  const userData = {
+    age: 2,
+    name: "deneme",
+    email: "df@gmailc.",
+    website: "wwww.",
+    createdOn: new Date(),
+  };
+
   beforeAll(() => {
     connect(`nedb://${dbPath}`, { autoload: true });
     db = getClient();
+
+    User = db.model("user", userSchema);
+    Category = db.model("category", categoySchema);
+  });
+
+  beforeEach(async () => {
+    const user1 = new User(userData);
+    await user1.save();
   });
 
   test("Should save Doc", async () => {
-    const User = db.model("user", userSchema);
-
-    const userData = {
-      age: 2,
-      name: "deneme",
-      email: "df@gmailc.",
-      website: "wwww.",
-      createdOn: new Date(),
-    };
-
     const deneme = new User(userData);
 
     expect(typeof deneme.values._id).toEqual("undefined");
