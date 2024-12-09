@@ -2,12 +2,7 @@
 export default {
   testEnvironment: "node",
   transform: {
-    "^.+.tsx?$": ["ts-jest", {}],
+    "^.+.tsx?$": ["ts-jest", { diagnostics: false }],
   },
   preset: "ts-jest",
-  globals: {
-    "ts-jest": {
-      diagnostics: false,
-    },
-  },
 };
