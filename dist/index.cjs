@@ -512,7 +512,7 @@ function createModel(collectionName, schema) {
 
 // src/utils.ts
 var import_model3 = __toESM(require("@seald-io/nedb/lib/model"), 1);
-async function returnNewDocAndValidateUpserting(schema, query, updateQ) {
+async function castAndValidateOnUpserting(schema, query, updateQ) {
   let toBeInserted;
   try {
     import_model3.default.checkObject(updateQ);
@@ -520,21 +520,20 @@ async function returnNewDocAndValidateUpserting(schema, query, updateQ) {
   } catch (e) {
     toBeInserted = import_model3.default.modify(import_model3.default.deepCopy(query, true), updateQ);
   }
-  await schema.validate(toBeInserted);
-  return toBeInserted;
+  const validatedData = await schema.validate(toBeInserted);
+  return validatedData;
 }
-async function validateDocAndReturnQOnUpdate(schema, oldDoc, updateQ, overwrite) {
-  console.log("overwrite : ", overwrite, hasOperator(updateQ));
+async function castAndValidateOnUpdate(schema, oldDoc, updateQ, overwrite) {
   if (overwrite || hasOperator(updateQ)) {
     const newDoc = import_model3.default.modify(import_model3.default.deepCopy(oldDoc), updateQ);
-    await schema.validate(newDoc);
-    return updateQ;
+    const castedData = await schema.validate(newDoc);
+    return { updateQ, castedData };
   } else {
-    console.log("deepCopy : ", import_model3.default.deepCopy(oldDoc));
-    console.log("updateQ: ", updateQ);
-    console.log("oldDoc : ", oldDoc);
-    await schema.partial().validate(updateQ);
-    return { $set: updateQ };
+    const castedData = await schema.partial().validate(updateQ);
+    return {
+      updateQ: { $set: castedData },
+      castedData
+    };
   }
 }
 
@@ -655,6 +654,7 @@ var NeDbClient = class _NeDbClient extends DatabaseClient {
    */
   async updateMany(collection, query, updateQuery, options = {}) {
     const currentCollection = this._collections[collection];
+    const currentSchema = this._schemas[collection];
     const qOptions = {
       ...options,
       multi: true,
@@ -663,7 +663,12 @@ var NeDbClient = class _NeDbClient extends DatabaseClient {
     const data = await this.findOne(collection, query);
     if (!data) {
       if (qOptions.upsert) {
-        const newDoc = await currentCollection.insertAsync(updateQuery);
+        const toBeInserted = await castAndValidateOnUpserting(
+          currentSchema,
+          query,
+          updateQuery
+        );
+        const newDoc = await currentCollection.insertAsync(toBeInserted);
         return newDoc;
       } else {
         return null;
@@ -675,7 +680,7 @@ var NeDbClient = class _NeDbClient extends DatabaseClient {
       if (qOptions.overwrite || hasOperator(updateQuery)) {
         currentUQ = updateQuery;
       }
-      const { affectedDocuments, upsert, numAffected } = await currentCollection.updateAsync(query, updateQuery, qOptions);
+      const { affectedDocuments, upsert, numAffected } = await currentCollection.updateAsync(query, currentUQ, qOptions);
       return affectedDocuments;
     }
   }
@@ -698,7 +703,7 @@ var NeDbClient = class _NeDbClient extends DatabaseClient {
     const oldDoc = await this.findOne(collection, query);
     if (!oldDoc) {
       if (qOptions.upsert) {
-        const toBeInserted = await returnNewDocAndValidateUpserting(
+        const toBeInserted = await castAndValidateOnUpserting(
           currentSchema,
           query,
           updateQuery
@@ -709,13 +714,13 @@ var NeDbClient = class _NeDbClient extends DatabaseClient {
         return null;
       }
     } else {
-      const currentUQ = await validateDocAndReturnQOnUpdate(
+      const { updateQ } = await castAndValidateOnUpdate(
         currentSchema,
         oldDoc,
         updateQuery,
         options.overwrite
       );
-      const { affectedDocuments, upsert, numAffected } = await currentCollection.updateAsync(query, currentUQ, qOptions);
+      const { affectedDocuments, upsert, numAffected } = await currentCollection.updateAsync(query, updateQ, qOptions);
       return affectedDocuments;
     }
   }

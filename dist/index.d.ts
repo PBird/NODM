@@ -1,5 +1,5 @@
-import * as _seald_io_nedb from '@seald-io/nedb';
-import _seald_io_nedb__default from '@seald-io/nedb';
+import * as Datastore from '@seald-io/nedb';
+import Datastore__default from '@seald-io/nedb';
 import * as yup from 'yup';
 import { AnyObject, ObjectSchema, Maybe } from 'yup';
 import NeDbCursor from '@seald-io/nedb/lib/cursor';
@@ -73,12 +73,12 @@ declare function createModel<T extends AnyObject>(collectionName: string, schema
         createdAt?: yup.Maybe<Date | undefined>;
         updatedAt?: yup.Maybe<Date | undefined>;
     } & T>;
-    findOneUpdate(query: object, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<{
+    findOneUpdate(query: object, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<Datastore.Document<{
         _id?: yup.Maybe<string | undefined>;
         createdAt?: yup.Maybe<Date | undefined>;
         updatedAt?: yup.Maybe<Date | undefined>;
     } & T> | null>;
-    findByIdAndUpdate(id: string, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<{
+    findByIdAndUpdate(id: string, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<Datastore.Document<{
         _id?: yup.Maybe<string | undefined>;
         createdAt?: yup.Maybe<Date | undefined>;
         updatedAt?: yup.Maybe<Date | undefined>;
@@ -90,14 +90,10 @@ declare function createModel<T extends AnyObject>(collectionName: string, schema
     } & T)[]>;
     findOneAndDelete(query: object): Promise<number>;
     findByIdAndDelete(id: string): Promise<number>;
-    updateMany(query: object, values: any, options?: UpdateOptions): Promise<_seald_io_nedb.Document<{
-        _id?: yup.Maybe<string | undefined>;
-        createdAt?: yup.Maybe<Date | undefined>;
-        updatedAt?: yup.Maybe<Date | undefined>;
-    } & T> | null>;
+    updateMany(query: object, values: any, options?: UpdateOptions): Promise<any>;
     deleteOne(query: object): Promise<number>;
     deleteMany(query: object): Promise<number>;
-    ensureIndex(options: _seald_io_nedb.default.EnsureIndexOptions): Promise<void>;
+    ensureIndex(options: Datastore.default.EnsureIndexOptions): Promise<void>;
     aggregate(pipeline: any[]): Promise<any[]>;
 };
 
@@ -128,22 +124,22 @@ interface FindOneAndUpdateOptions extends UpdateOptions {
 type CollectionModel<T extends AnyObject> = ReturnType<typeof createModel<T>>;
 
 declare class Cursor<T> extends NeDbCursor {
-    constructor(db: _seald_io_nedb__default<T>, query: object, mapFn: any, options: CursorOptions);
+    constructor(db: Datastore__default<T>, query: object, mapFn: any, options: CursorOptions);
     then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T | null) => TResult1 | PromiseLike<TResult1>) | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null): Promise<TResult1 | TResult2>;
 }
 
-type NeDbClientOptions = Omit<_seald_io_nedb__default.DataStoreOptions, "filename" | "inMemoryOnly">;
+type NeDbClientOptions = Omit<Datastore__default.DataStoreOptions, "filename" | "inMemoryOnly">;
 declare class NeDbClient extends DatabaseClient {
     _path: string;
     _collections: {
-        [key: string]: _seald_io_nedb__default<any>;
+        [key: string]: Datastore__default<any>;
     };
     _schemas: {
         [key: string]: ObjectSchema<AnyObject>;
     };
     _options: NeDbClientOptions;
     constructor(url: string, collections: {
-        [key: string]: _seald_io_nedb__default<any>;
+        [key: string]: Datastore__default<any>;
     }, schemas: {
         [key: string]: ObjectSchema<AnyObject>;
     }, options: NeDbClientOptions);
@@ -187,12 +183,12 @@ declare class NeDbClient extends DatabaseClient {
             createdAt?: Maybe<Date | undefined>;
             updatedAt?: Maybe<Date | undefined>;
         } & T>;
-        findOneUpdate(query: object, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<{
+        findOneUpdate(query: object, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<Datastore.Document<{
             _id?: Maybe<string | undefined>;
             createdAt?: Maybe<Date | undefined>;
             updatedAt?: Maybe<Date | undefined>;
         } & T> | null>;
-        findByIdAndUpdate(id: string, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<{
+        findByIdAndUpdate(id: string, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<Datastore.Document<{
             _id?: Maybe<string | undefined>;
             createdAt?: Maybe<Date | undefined>;
             updatedAt?: Maybe<Date | undefined>;
@@ -204,14 +200,10 @@ declare class NeDbClient extends DatabaseClient {
         } & T)[]>;
         findOneAndDelete(query: object): Promise<number>;
         findByIdAndDelete(id: string): Promise<number>;
-        updateMany(query: object, values: any, options?: UpdateOptions): Promise<_seald_io_nedb.Document<{
-            _id?: Maybe<string | undefined>;
-            createdAt?: Maybe<Date | undefined>;
-            updatedAt?: Maybe<Date | undefined>;
-        } & T> | null>;
+        updateMany(query: object, values: any, options?: UpdateOptions): Promise<any>;
         deleteOne(query: object): Promise<number>;
         deleteMany(query: object): Promise<number>;
-        ensureIndex(options: _seald_io_nedb__default.EnsureIndexOptions): Promise<void>;
+        ensureIndex(options: Datastore__default.EnsureIndexOptions): Promise<void>;
         aggregate(pipeline: any[]): Promise<any[]>;
     };
     /**
@@ -244,7 +236,7 @@ declare class NeDbClient extends DatabaseClient {
      * regardless of the value of the multi option
      *
      */
-    updateMany<T extends object>(collection: string, query: object, updateQuery: T, options?: UpdateManyOptions): Promise<_seald_io_nedb.Document<T> | null>;
+    updateMany<T extends object>(collection: string, query: object, updateQuery: T, options?: UpdateManyOptions): Promise<any>;
     /**
      * Find one document and update it
      *
@@ -253,8 +245,8 @@ declare class NeDbClient extends DatabaseClient {
      * if upsert false and doc not exist: return null
      *
      */
-    findOneAndUpdate<T extends object>(collection: string, query: object, updateQuery: T, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
-    findByIdAndUpdate<T extends object>(collection: string, id: string, updateQuery: T, options?: FindOneAndUpdateOptions): Promise<_seald_io_nedb.Document<T> | null>;
+    findOneAndUpdate<T extends object>(collection: string, query: object, updateQuery: T, options?: FindOneAndUpdateOptions): Promise<Datastore.Document<T> | null>;
+    findByIdAndUpdate<T extends object>(collection: string, id: string, updateQuery: T, options?: FindOneAndUpdateOptions): Promise<Datastore.Document<T> | null>;
     /**
      * Find one document and delete it
      *
@@ -275,7 +267,7 @@ declare class NeDbClient extends DatabaseClient {
      * ensureIndex documents
      *
      */
-    ensureIndex<T>(collection: any, options: _seald_io_nedb__default.EnsureIndexOptions): Promise<void>;
+    ensureIndex<T>(collection: any, options: Datastore__default.EnsureIndexOptions): Promise<void>;
     /**
      * Get count of collection by query
      *
@@ -300,7 +292,7 @@ declare class NeDbClient extends DatabaseClient {
      * @param {Object} options
      * @returns {Promise}
      */
-    static connect(url: any, options: _seald_io_nedb__default.DataStoreOptions): NeDbClient;
+    static connect(url: any, options: Datastore__default.DataStoreOptions): NeDbClient;
     /**
      * Close current connection
      *
@@ -325,7 +317,7 @@ declare class NeDbClient extends DatabaseClient {
     toNativeId(id: any): void;
     nativeIdType(): StringConstructor;
     driver(): {
-        [key: string]: _seald_io_nedb__default<any>;
+        [key: string]: Datastore__default<any>;
     };
 }
 
