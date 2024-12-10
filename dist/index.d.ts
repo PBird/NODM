@@ -149,7 +149,7 @@ declare class NeDbClient extends DatabaseClient {
     }, options: NeDbClientOptions);
     static urlToPath(url: string): string;
     private getCollectionPath;
-    model<T extends AnyObject>(name: string, schema: ObjectSchema<T, AnyObject, T>): {
+    model<T extends AnyObject>(name: string, schema: ObjectSchema<T>): {
         new (values: {
             _id?: Maybe<string | undefined>;
             createdAt?: Maybe<Date | undefined>;

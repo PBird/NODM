@@ -43,6 +43,10 @@ describe("Document", () => {
     const user1 = new User(userData);
     // user1.values
     await user1.save();
+
+    const A = db.model("ss", userSchema);
+
+    // const cat1 = new Category({name: '34', address: 1})
   });
 
   afterEach(async () => {

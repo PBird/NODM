@@ -61,10 +61,7 @@ export class NeDbClient extends DatabaseClient {
     return path.join(this._path, collection) + ".db";
   }
 
-  model<T extends AnyObject>(
-    name: string,
-    schema: ObjectSchema<T, AnyObject, T>,
-  ) {
+  model<T extends AnyObject>(name: string, schema: ObjectSchema<T>) {
     // TODO: We can  configure memory db later
     if (this._path === "memory") {
       const ds = new Datastore({ inMemoryOnly: true, ...this._options });
