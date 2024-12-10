@@ -15,10 +15,7 @@ import {
 } from "../types";
 import hasOperator from "../utils/hasOperator";
 import { createModel } from "../createModel";
-import {
-  returnNewDocAndValidateUpserting,
-  validateDocAndReturnQOnUpdate,
-} from "../utils";
+import { castAndValidateOnUpserting, castAndValidateOnUpdate } from "../utils";
 
 export type NeDbClientOptions = Omit<
   Datastore.DataStoreOptions,
@@ -97,7 +94,7 @@ export class NeDbClient extends DatabaseClient {
     }
 
     if (typeof id === "undefined") {
-      const result = await currentCollection.insertAsync(values);
+      const result = await currentCollection.insertAsync<T>(values);
 
       return result;
     }
@@ -192,6 +189,7 @@ export class NeDbClient extends DatabaseClient {
     options: UpdateManyOptions = {},
   ) {
     const currentCollection = this._collections[collection] as Datastore<T>;
+    const currentSchema = this._schemas[collection];
 
     const qOptions: DefaultUpdateOption = {
       ...options,
@@ -203,8 +201,14 @@ export class NeDbClient extends DatabaseClient {
 
     if (!data) {
       if (qOptions.upsert) {
-        // const newData =
-        const newDoc = await currentCollection.insertAsync(updateQuery);
+        // TODO: upsert için test et
+        const toBeInserted = await castAndValidateOnUpserting<T>(
+          currentSchema,
+          query,
+          updateQuery,
+        );
+
+        const newDoc = await currentCollection.insertAsync(toBeInserted);
         return newDoc;
       } else {
         return null;
@@ -214,12 +218,13 @@ export class NeDbClient extends DatabaseClient {
         $set: updateQuery,
       };
 
+      // TODO: maybe we can validate docs like updateOne
       // if has any operator do updatequery
       if (qOptions.overwrite || hasOperator(updateQuery)) {
         currentUQ = updateQuery;
       }
       const { affectedDocuments, upsert, numAffected } =
-        await currentCollection.updateAsync(query, updateQuery, qOptions);
+        await currentCollection.updateAsync(query, currentUQ, qOptions);
 
       return affectedDocuments;
     }
@@ -253,18 +258,18 @@ export class NeDbClient extends DatabaseClient {
     if (!oldDoc) {
       if (qOptions.upsert) {
         // get toBeInserted doc and validate
-        const toBeInserted = await returnNewDocAndValidateUpserting<T>(
+        const toBeInserted = await castAndValidateOnUpserting<T>(
           currentSchema,
           query,
           updateQuery,
         );
-        const newDoc = await currentCollection.insertAsync(toBeInserted);
+        const newDoc = await currentCollection.insertAsync<T>(toBeInserted);
         return newDoc;
       } else {
         return null;
       }
     } else {
-      const currentUQ = await validateDocAndReturnQOnUpdate(
+      const { updateQ } = await castAndValidateOnUpdate(
         currentSchema,
         oldDoc,
         updateQuery,
@@ -272,7 +277,7 @@ export class NeDbClient extends DatabaseClient {
       );
 
       const { affectedDocuments, upsert, numAffected } =
-        await currentCollection.updateAsync(query, currentUQ, qOptions);
+        await currentCollection.updateAsync(query, updateQ, qOptions);
 
       return affectedDocuments;
     }

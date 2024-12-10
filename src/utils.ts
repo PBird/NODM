@@ -2,7 +2,7 @@ import NeDbModel from "@seald-io/nedb/lib/model";
 import { AnyObject, AnySchema, ObjectSchema } from "yup";
 import hasOperator from "./utils/hasOperator";
 
-export async function returnNewDocAndValidateUpserting<T extends AnyObject>(
+export async function castAndValidateOnUpserting<T extends AnyObject>(
   schema: ObjectSchema<any>,
   query: object,
   updateQ: object,
@@ -19,29 +19,28 @@ export async function returnNewDocAndValidateUpserting<T extends AnyObject>(
     toBeInserted = NeDbModel.modify(NeDbModel.deepCopy(query, true), updateQ);
   }
 
-  await schema.validate(toBeInserted);
+  const validatedData = await schema.validate(toBeInserted);
 
-  return toBeInserted;
+  return validatedData;
 }
 
-export async function validateDocAndReturnQOnUpdate<T extends AnyObject>(
+export async function castAndValidateOnUpdate<T extends AnyObject>(
   schema: ObjectSchema<T>,
   oldDoc: T,
   updateQ: object,
   overwrite?: boolean,
 ) {
-  console.log("overwrite : ", overwrite, hasOperator(updateQ));
   if (overwrite || hasOperator(updateQ)) {
     const newDoc = NeDbModel.modify(NeDbModel.deepCopy(oldDoc), updateQ);
 
-    await schema.validate(newDoc);
-    return updateQ;
+    const castedData = await schema.validate(newDoc);
+    return { updateQ, castedData };
   } else {
-    console.log("deepCopy : ", NeDbModel.deepCopy(oldDoc));
-    console.log("updateQ: ", updateQ);
-    console.log("oldDoc : ", oldDoc);
+    const castedData = await schema.partial().validate(updateQ);
 
-    await schema.partial().validate(updateQ);
-    return { $set: updateQ };
+    return {
+      updateQ: { $set: castedData },
+      castedData: castedData,
+    };
   }
 }
