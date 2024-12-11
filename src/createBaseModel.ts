@@ -37,7 +37,7 @@ export default function createBaseModel<T extends AnyObject>(
      * if upsert false and doc not exist: return null
      *
      */
-    static findOneUpdate(
+    static findOneAndUpdate(
       query: object,
       updateQuery: any,
       options?: FindOneAndUpdateOptions,

@@ -385,7 +385,7 @@ function createBaseModel(name, schema) {
      * if upsert false and doc not exist: return null
      *
      */
-    static findOneUpdate(query, updateQuery, options) {
+    static findOneAndUpdate(query, updateQuery, options) {
       return getClient().findOneAndUpdate(
         this.collectionName,
         query,
@@ -498,6 +498,7 @@ function createModel(collectionName, schema) {
       if (res !== null) {
         this.values = res;
       }
+      return res;
     }
     /**
      * Delete current document

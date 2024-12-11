@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "declaration": true,
     "target": "es2022", /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */
     "module": "commonjs", /* Specify what module code is generated. */
     "lib": [
@@ -15,5 +16,10 @@
       "./node_modules/@types",
       "./@types"
     ],
-  }
+  },
+  "include": [
+    "src/**/*",
+    "dist/index.d.ts", // declaration file path
+    "@types/**/*"
+  ],
 }

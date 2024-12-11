@@ -34,8 +34,8 @@ describe("Document", () => {
     connect(`nedb://${dbPath}`, { autoload: true });
     db = getClient();
 
-    User = db.model("user", userSchema);
-    Category = db.model("category", categoySchema);
+    User = db.model("userupdate", userSchema);
+    Category = db.model("categoryupdate", categoySchema);
   });
 
   beforeEach(async () => {
@@ -134,7 +134,7 @@ describe("Document", () => {
   });
 
   test("Should findOne and update ", async () => {
-    const deneme = await User.findOneUpdate(
+    const deneme = await User.findOneAndUpdate(
       { name: "deneme" },
       { name: "changedName" },
     );

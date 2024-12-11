@@ -23,3 +23,6 @@ connect(`nedb://${dbPath}`, { autoload: true });
 
 
 `
+
+template reference
+https://github.com/orabazu/tsup-library-template

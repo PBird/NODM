@@ -53,7 +53,11 @@ declare function createModel<T extends AnyObject>(collectionName: string, schema
         /**
          * Save (upsert) document
          */
-        save(options?: SaveOptions): Promise<void>;
+        save(options?: SaveOptions): Promise<({
+            _id?: yup.Maybe<string | undefined>;
+            createdAt?: yup.Maybe<Date | undefined>;
+            updatedAt?: yup.Maybe<Date | undefined>;
+        } & T) | null>;
         /**
          * Delete current document
          */
@@ -73,7 +77,7 @@ declare function createModel<T extends AnyObject>(collectionName: string, schema
         createdAt?: yup.Maybe<Date | undefined>;
         updatedAt?: yup.Maybe<Date | undefined>;
     } & T>;
-    findOneUpdate(query: object, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<Datastore.Document<{
+    findOneAndUpdate(query: object, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<Datastore.Document<{
         _id?: yup.Maybe<string | undefined>;
         createdAt?: yup.Maybe<Date | undefined>;
         updatedAt?: yup.Maybe<Date | undefined>;
@@ -166,7 +170,11 @@ declare class NeDbClient extends DatabaseClient {
                 createdAt?: Maybe<Date | undefined>;
                 updatedAt?: Maybe<Date | undefined>;
             } & T)[K]): T[K];
-            save(options?: SaveOptions): Promise<void>;
+            save(options?: SaveOptions): Promise<({
+                _id?: Maybe<string | undefined>;
+                createdAt?: Maybe<Date | undefined>;
+                updatedAt?: Maybe<Date | undefined>;
+            } & T) | null>;
             delete(): Promise<number>;
         };
         collectionName: string;
@@ -183,7 +191,7 @@ declare class NeDbClient extends DatabaseClient {
             createdAt?: Maybe<Date | undefined>;
             updatedAt?: Maybe<Date | undefined>;
         } & T>;
-        findOneUpdate(query: object, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<Datastore.Document<{
+        findOneAndUpdate(query: object, updateQuery: any, options?: FindOneAndUpdateOptions): Promise<Datastore.Document<{
             _id?: Maybe<string | undefined>;
             createdAt?: Maybe<Date | undefined>;
             updatedAt?: Maybe<Date | undefined>;

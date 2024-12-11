@@ -35,8 +35,8 @@ describe("Document", () => {
     connect(`nedb://${dbPath}`, { autoload: true });
     db = getClient();
 
-    User = db.model("user", userSchema);
-    Category = db.model("category", categoySchema);
+    User = db.model("userdoc", userSchema);
+    Category = db.model("categorydoc", categoySchema);
   });
 
   beforeEach(async () => {
