@@ -58,6 +58,8 @@ export function createModel<T extends AnyObject>(
       if (res !== null) {
         this.values = res;
       }
+
+      return res;
     }
 
     /**
