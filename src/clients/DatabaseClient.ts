@@ -23,8 +23,6 @@ export default abstract class DatabaseClient {
 
   abstract find(collection, query, options): void;
 
-  abstract count(collection, query): void;
-
   abstract createIndex(collection, field, options): void;
 
   static connect(url, options) {

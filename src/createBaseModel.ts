@@ -67,6 +67,10 @@ export default function createBaseModel<T extends AnyObject>(
       return db().find<T>(this.collectionName, query, options);
     }
 
+    static countDocuments(query = {}) {
+      return db().count<T>(this.collectionName, query);
+    }
+
     /**
      *
      * Find one document and delete it in current collection

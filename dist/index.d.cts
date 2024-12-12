@@ -16,7 +16,6 @@ declare abstract class DatabaseClient {
     abstract findOneAndUpdate(collection: any, query: any, values: any, options: any): void;
     abstract findOneAndDelete(collection: any, query: any): void;
     abstract find(collection: any, query: any, options: any): void;
-    abstract count(collection: any, query: any): void;
     abstract createIndex(collection: any, field: any, options: any): void;
     static connect(url: any, options: any): void;
     abstract close(): void;
@@ -92,6 +91,7 @@ declare function createModel<T extends AnyObject>(collectionName: string, schema
         createdAt?: yup.Maybe<Date | undefined>;
         updatedAt?: yup.Maybe<Date | undefined>;
     } & T)[]>;
+    countDocuments(query?: {}): Promise<number>;
     findOneAndDelete(query: object): Promise<number>;
     findByIdAndDelete(id: string): Promise<number>;
     updateMany(query: object, values: any, options?: UpdateOptions): Promise<any>;
@@ -128,7 +128,7 @@ interface FindOneAndUpdateOptions extends UpdateOptions {
 type CollectionModel<T extends AnyObject> = ReturnType<typeof createModel<T>>;
 
 declare class Cursor<T> extends NeDbCursor {
-    constructor(db: Datastore__default<T>, query: object, mapFn: any, options: CursorOptions);
+    constructor(db: Datastore__default<T>, query: object, mapFn: any, options?: CursorOptions);
     then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T | null) => TResult1 | PromiseLike<TResult1>) | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null): Promise<TResult1 | TResult2>;
 }
 
@@ -206,6 +206,7 @@ declare class NeDbClient extends DatabaseClient {
             createdAt?: Maybe<Date | undefined>;
             updatedAt?: Maybe<Date | undefined>;
         } & T)[]>;
+        countDocuments(query?: {}): Promise<number>;
         findOneAndDelete(query: object): Promise<number>;
         findByIdAndDelete(id: string): Promise<number>;
         updateMany(query: object, values: any, options?: UpdateOptions): Promise<any>;
@@ -279,11 +280,8 @@ declare class NeDbClient extends DatabaseClient {
     /**
      * Get count of collection by query
      *
-     * @param {String} collection Collection's name
-     * @param {Object} query Query
-     * @returns {Promise}
      */
-    count(collection: any, query: any): Promise<unknown>;
+    count<T>(collection: string, query: object): Promise<number>;
     /**
      * Create index
      *

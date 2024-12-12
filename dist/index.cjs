@@ -70,7 +70,7 @@ var import_model4 = require("@seald-io/nedb/lib/model");
 // src/Cursor.ts
 var import_cursor = __toESM(require("@seald-io/nedb/lib/cursor"), 1);
 var Cursor = class extends import_cursor.default {
-  constructor(db, query, mapFn, options) {
+  constructor(db, query, mapFn, options = {}) {
     super(db, query, mapFn);
     this._limit = options.limit;
     this._skip = options.skip;
@@ -251,7 +251,7 @@ var Aggregation = class _Aggregation {
     if (this.currentCS === null) {
       docs = this.currentDS.getAllData();
     } else {
-      docs = await this.updateCursorsDatastore();
+      docs = await this.currentCS.execAsync();
     }
     const { from, localField, foreignField, as, pipeline = [] } = params;
     const foreignDS = getClient()._collections[from];
@@ -315,46 +315,25 @@ var Aggregation = class _Aggregation {
   }
   async updateDatastoreFromDocs(newDocs) {
     this.currentDS = new import_nedb.default(this.datastoreOptions);
-    await this.currentDS.insertAsync(newDocs);
+    await this.currentDS.executor.pushAsync(
+      async () => this.currentDS._resetIndexes(newDocs),
+      true
+    );
   }
   async updateCursorsDatastore() {
     let currentDocs = [];
     currentDocs = await this.currentCS.execAsync();
+    const indexes = this.currentCS.indexes;
     this.currentDS = new import_nedb.default(this.datastoreOptions);
-    await this.currentDS.insertAsync(currentDocs);
+    await this.currentDS.executor.pushAsync(
+      async () => this.currentDS._resetIndexes(currentDocs),
+      true
+    );
+    if (indexes) {
+      this.currentDS.indexes = indexes;
+    }
     this.currentCS = this.currentDS.findAsync({}).sort(this.currentCS?._sort);
     return currentDocs;
-  }
-  //  Current cursor'u null değilse exec eder ve dönen Dökümanları yeni Datastore içine aktar.
-  //  Eğer döküman dizisi verilirse dökümanlardan yeni data store oluşturur ve currentDS ye atar.
-  //  @param  any[]  newDocs Datastore'un içine eklenecek dökümanlar
-  //  @param  showIDfield  showIDfield tek değer alabilir o da false. Yeni oluşturduğumuz datastore içinden _id alanını
-  //  silemediğimiz için bu yöntemle projectte göstermiyoruz
-  //
-  //  @returns Promise<void>
-  async execCursor(newDocs, showIDfield = false) {
-    if (typeof newDocs === "undefined" && this.currentCS === null) {
-      return;
-    }
-    let currentDocs;
-    if (typeof newDocs !== "undefined") {
-      if (Array.isArray(newDocs)) {
-        currentDocs = newDocs;
-        if (!showIDfield) {
-          this.showIDfield = showIDfield;
-        }
-      } else {
-        throw new Error(`Coultn't create new Datastore from ${newDocs}`);
-      }
-    } else {
-      currentDocs = await this.currentCS.execAsync();
-    }
-    this.currentDS = new import_nedb.default({
-      inMemoryOnly: true,
-      compareStrings: this.currentDS.compareStrings
-    });
-    await this.currentDS.insertAsync(currentDocs);
-    this.currentCS = null;
   }
 };
 
@@ -403,6 +382,9 @@ function createBaseModel(name, schema) {
     }
     static find(query = {}, options = {}) {
       return getClient().find(this.collectionName, query, options);
+    }
+    static countDocuments(query = {}) {
+      return getClient().count(this.collectionName, query);
     }
     /**
      *
@@ -778,19 +760,16 @@ var NeDbClient = class _NeDbClient extends DatabaseClient {
   /**
    * Get count of collection by query
    *
-   * @param {String} collection Collection's name
-   * @param {Object} query Query
-   * @returns {Promise}
    */
-  count(collection, query) {
-    const that = this;
-    return new Promise((resolve, reject) => {
-      const db = this._collections[collection];
-      db.count(query, function(error, count) {
-        if (error) return reject(error);
-        return resolve(count);
-      });
-    });
+  async count(collection, query) {
+    const currentCollection = this._collections[collection];
+    const cursor = new Cursor(
+      currentCollection,
+      query,
+      (docs) => docs.length
+    );
+    const docCounts = await cursor;
+    return docCounts;
   }
   /**
    * Create index

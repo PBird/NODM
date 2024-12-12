@@ -7,7 +7,7 @@ export default class Cursor<T> extends NeDbCursor {
     db: Datastore<T>,
     query: object,
     mapFn: any,
-    options: CursorOptions,
+    options: CursorOptions = {},
   ) {
     super(db, query, mapFn);
     this._limit = options.limit;

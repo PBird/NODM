@@ -1,5 +1,6 @@
 import Datastore from "@seald-io/nedb";
 import { deepCopy, getDotValue } from "@seald-io/nedb/lib/model";
+import Index from "@seald-io/nedb/lib/indexes";
 import _ from "lodash";
 import RightJoiner from "./utils/RighJoiner";
 import { NeDbClient } from "./clients/NedbClient";
@@ -179,7 +180,7 @@ export default class Aggregation {
     if (this.currentCS === null) {
       docs = this.currentDS.getAllData();
     } else {
-      docs = await this.updateCursorsDatastore();
+      docs = await this.currentCS.execAsync();
     }
 
     const { from, localField, foreignField, as, pipeline = [] } = params;
@@ -255,57 +256,39 @@ export default class Aggregation {
 
   async updateDatastoreFromDocs(newDocs: any) {
     this.currentDS = new Datastore(this.datastoreOptions);
-    await this.currentDS.insertAsync(newDocs);
+
+    await this.currentDS.executor.pushAsync(
+      async () => this.currentDS._resetIndexes(newDocs),
+      true,
+    );
   }
 
   async updateCursorsDatastore() {
     let currentDocs = [];
 
     currentDocs = await this.currentCS.execAsync();
+    const indexes = this.currentCS.indexes;
 
     this.currentDS = new Datastore(this.datastoreOptions);
 
-    await this.currentDS.insertAsync(currentDocs);
+    // await this.currentDS.insertAsync(currentDocs)
+
+    await this.currentDS.executor.pushAsync(
+      async () => this.currentDS._resetIndexes(currentDocs),
+      true,
+    );
+
+    // Recreate all indexes in the datafile
+    if (indexes) {
+      this.currentDS.indexes = indexes;
+
+      // Object.keys(indexes).forEach((key) => {
+      //   this.currentDS.indexes[key] = new Index(indexes[key]);
+      // });
+    }
 
     this.currentCS = this.currentDS.findAsync({}).sort(this.currentCS?._sort);
 
     return currentDocs;
-  }
-
-  //  Current cursor'u null değilse exec eder ve dönen Dökümanları yeni Datastore içine aktar.
-  //  Eğer döküman dizisi verilirse dökümanlardan yeni data store oluşturur ve currentDS ye atar.
-  //  @param  any[]  newDocs Datastore'un içine eklenecek dökümanlar
-  //  @param  showIDfield  showIDfield tek değer alabilir o da false. Yeni oluşturduğumuz datastore içinden _id alanını
-  //  silemediğimiz için bu yöntemle projectte göstermiyoruz
-  //
-  //  @returns Promise<void>
-  async execCursor(newDocs?: any[], showIDfield = false) {
-    if (typeof newDocs === "undefined" && this.currentCS === null) {
-      // currentCS null ise cursordan alacağımız veri yok datastore aynı kalsın
-      return;
-    }
-
-    let currentDocs: any[];
-    if (typeof newDocs !== "undefined") {
-      if (Array.isArray(newDocs)) {
-        currentDocs = newDocs;
-        // bir kere false ayarlandımı değiştirilemesin
-        if (!showIDfield) {
-          this.showIDfield = showIDfield;
-        }
-      } else {
-        throw new Error(`Coultn't create new Datastore from ${newDocs}`);
-      }
-    } else {
-      // @ts-ignore eğer null ise zaten return ediyor fonksiyonun başında
-      currentDocs = await this.currentCS.execAsync();
-    }
-
-    this.currentDS = new Datastore({
-      inMemoryOnly: true,
-      compareStrings: this.currentDS.compareStrings,
-    });
-    await this.currentDS.insertAsync(currentDocs);
-    this.currentCS = null;
   }
 }

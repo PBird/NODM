@@ -1,0 +1,167 @@
+{
+  "products": [
+    {
+      "_id": "1p",
+      "name": "Test Product 1",
+      "stockCode": "TP-1",
+      "cat_ids": [
+        "1c",
+        "2c",
+        "1c"
+      ],
+      "sub_product_ids": [
+        "1sp",
+        "2sp"
+      ],
+      "alisFiyat": 10,
+      "satisFiyat": 0,
+      "indirimliFiyat": 0
+    },
+    {
+      "_id": "2p",
+      "name": "Test Product 2",
+      "stockCode": "TP-1",
+      "cat_ids": [
+        "3c",
+        "4c"
+      ],
+      "sub_product_ids": [
+        "3sp",
+        "4sp"
+      ],
+      "alisFiyat": 16,
+      "satisFiyat": 0,
+      "indirimliFiyat": 0
+    },
+    {
+      "_id": "3p",
+      "name": "Test Product 3",
+      "stockCode": "TP-3",
+      "cat_ids": [
+        "4c"
+      ],
+      "sub_product_ids": [
+        "4sp"
+      ],
+      "alisFiyat": 5,
+      "satisFiyat": 10,
+      "indirimliFiyat": 7
+    },
+    {
+      "_id": "4p",
+      "name": "Test Product 4",
+      "stockCode": "TP-4",
+      "cat_ids": "1c",
+      "sub_product_ids": [
+        "1sp"
+      ],
+      "alisFiyat": 3,
+      "satisFiyat": 10,
+      "indirimliFiyat": 7
+    },
+    {
+      "_id": "5p",
+      "name": "Test Product 5",
+      "stockCode": "TP-4",
+      "cat_ids": "Nope",
+      "sub_product_ids": [
+        "1sp"
+      ],
+      "alisFiyat": 2,
+      "satisFiyat": 10,
+      "indirimliFiyat": 7
+    }
+  ],
+  "categories": [
+    {
+      "_id": "1c",
+      "name": "Test Cat 1"
+    },
+    {
+      "_id": "2c",
+      "name": "Test Cat 2"
+    },
+    {
+      "_id": "3c",
+      "name": "Test Cat 3"
+    },
+    {
+      "_id": "4c",
+      "name": "Test Cat 4"
+    }
+  ],
+  "subProducts": [
+    {
+      "_id": "1sp",
+      "stockCode": "TP-1"
+    },
+    {
+      "_id": "2sp",
+      "stockCode": "TP-2"
+    },
+    {
+      "_id": "3sp",
+      "stockCode": "TP-3"
+    },
+    {
+      "_id": "4sp",
+      "stockCode": "TP-4"
+    }
+  ],
+  "barcodes": [
+    {
+      "_id": "1b",
+      "product": "A",
+      "stock": 24,
+      "barcode": "ABC",
+      "pro_id": "1p",
+      "barcodeData": {
+        "barcodeType": "UNKNOWN"
+      }
+    },
+    {
+      "_id": "2b",
+      "product": "X",
+      "stock": 8,
+      "barcode": "XYZ",
+      "pro_id": "2p",
+      "sub_id": "3sp",
+      "barcodeData": {
+        "barcodeType": "UNKNOWN"
+      }
+    },
+    {
+      "_id": "3b",
+      "product": "D",
+      "stock": 22,
+      "barcode": "DCD",
+      "pro_id": "2p",
+      "sub_id": "3sp",
+      "barcodeData": {
+        "barcodeType": "UNKNOWN"
+      }
+    },
+    {
+      "_id": "4b",
+      "product": "P",
+      "stock": 30,
+      "barcode": "PCD",
+      "pro_id": "3p",
+      "sub_id": "2sp",
+      "barcodeData": {
+        "barcodeType": "UNKNOWN"
+      }
+    },
+    {
+      "_id": "5b",
+      "product": "Z",
+      "stock": 4,
+      "barcode": "ZCD",
+      "pro_id": "4p",
+      "sub_id": "1sp",
+      "barcodeData": {
+        "barcodeType": "UNKNOWN"
+      }
+    }
+  ]
+}

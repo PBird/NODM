@@ -351,19 +351,18 @@ export class NeDbClient extends DatabaseClient {
   /**
    * Get count of collection by query
    *
-   * @param {String} collection Collection's name
-   * @param {Object} query Query
-   * @returns {Promise}
    */
-  count(collection, query) {
-    const that = this;
-    return new Promise((resolve, reject) => {
-      const db = this._collections[collection];
-      db.count(query, function (error, count) {
-        if (error) return reject(error);
-        return resolve(count);
-      });
-    });
+  async count<T>(collection: string, query: object) {
+    const currentCollection = this._collections[collection] as Datastore<T>;
+
+    const cursor = new Cursor<number>(
+      currentCollection,
+      query,
+      (docs) => docs.length,
+    );
+
+    const docCounts = await cursor;
+    return docCounts as number;
   }
 
   /**
