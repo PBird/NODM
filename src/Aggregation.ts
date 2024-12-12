@@ -79,6 +79,7 @@ export default class Aggregation {
   async $match(params: any) {
     if (this.currentCS !== null) {
       await this.updateCursorsDatastore();
+
       // query i değiştiriyoruz. zaten eşleşenleri çektik
       // @ts-ignore
       this.currentCS.query = params;
@@ -105,7 +106,7 @@ export default class Aggregation {
       },
     ];
 
-    this.updateDatastoreFromDocs(newDocs);
+    this.currentDS = await this.createDatastoreFromDocs(newDocs);
     this.currentCS = this.currentDS.findAsync({}).projection({ _id: 0 });
     this.showIDfield = false;
   }
@@ -170,7 +171,7 @@ export default class Aggregation {
       return acc;
     }, {});
 
-    this.updateDatastoreFromDocs(newDoc);
+    this.currentDS = await this.createDatastoreFromDocs(newDoc);
     this.currentCS = this.currentDS.findAsync({});
     this.showIDfield = false;
   }
@@ -184,30 +185,18 @@ export default class Aggregation {
     }
 
     const { from, localField, foreignField, as, pipeline = [] } = params;
-    const foreignDS = db()._collections[from];
 
     const localFieldKeys = _.uniq(
       docs.map((d) => getDotValue(d, localField)),
     ).flat();
 
-    let foreignDocs = [];
-    if (typeof foreignDS !== "undefined") {
-      const foreignPipeline = [
-        {
-          $match: {
-            [foreignField]: { $in: localFieldKeys },
-          },
-        },
-      ];
-      const newAggregation = new Aggregation({
-        ds: foreignDS,
-        pipeline: foreignPipeline.concat(pipeline),
-        cs: null,
-      });
-      foreignDocs = await newAggregation.run();
-    } else {
-      throw new Error("Foreign model doesn't have aggregate function");
-    }
+    const foreignDocs = await this.getForeingDS(
+      from,
+      foreignField,
+      localFieldKeys,
+      pipeline,
+    );
+
     const joiner = new RightJoiner(foreignDocs, docs, {
       foreignField,
       localField,
@@ -217,7 +206,7 @@ export default class Aggregation {
 
     const newDocs = joiner.join();
 
-    await this.updateDatastoreFromDocs(newDocs);
+    this.currentDS = await this.createDatastoreFromDocs(newDocs);
 
     // lookup ile oluşturulan döküman sırasını korumak için
     this.currentCS = this.currentDS.findAsync({}).sort(this.currentCS?._sort);
@@ -254,19 +243,69 @@ export default class Aggregation {
     );
   }
 
-  async updateDatastoreFromDocs(newDocs: any) {
-    this.currentDS = new Datastore(this.datastoreOptions);
+  async createDatastoreFromDocs(newDocs: any) {
+    const newDS = new Datastore(this.datastoreOptions);
 
-    await this.currentDS.executor.pushAsync(
-      async () => this.currentDS._resetIndexes(newDocs),
+    await newDS.executor.pushAsync(
+      async () => newDS._resetIndexes(newDocs),
       true,
     );
+
+    return newDS;
+  }
+
+  async getForeingDS(
+    from: string,
+    foreignField: string,
+    localFieldKeys: any[],
+    pipeline: any[],
+  ) {
+    const foreignDS = db()._collections[from];
+    let foreignDocs = [];
+
+    if (typeof foreignDS !== "undefined") {
+      if (foreignField in foreignDS.indexes) {
+        const docs =
+          foreignDS.indexes[foreignField].getMatching(localFieldKeys);
+        const newForeignDs = await this.createDatastoreFromDocs(docs);
+
+        const foreignPipeline = [];
+
+        const newAggregation = new Aggregation({
+          ds: newForeignDs,
+          pipeline: foreignPipeline.concat(pipeline),
+          cs: null,
+        });
+
+        foreignDocs = await newAggregation.run();
+      } else {
+        const foreignPipeline = [
+          {
+            $match: {
+              [foreignField]: { $in: localFieldKeys },
+            },
+          },
+        ];
+        const newAggregation = new Aggregation({
+          ds: foreignDS,
+          pipeline: foreignPipeline.concat(pipeline),
+          cs: null,
+        });
+
+        foreignDocs = await newAggregation.run();
+      }
+    } else {
+      throw new Error("Foreign model doesn't have aggregate function");
+    }
+
+    return foreignDocs;
   }
 
   async updateCursorsDatastore() {
     let currentDocs = [];
 
     currentDocs = await this.currentCS.execAsync();
+
     const indexes = this.currentCS.indexes;
 
     this.currentDS = new Datastore(this.datastoreOptions);

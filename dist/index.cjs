@@ -195,7 +195,7 @@ var Aggregation = class _Aggregation {
         [params]: countDocs
       }
     ];
-    this.updateDatastoreFromDocs(newDocs);
+    this.currentDS = await this.createDatastoreFromDocs(newDocs);
     this.currentCS = this.currentDS.findAsync({}).projection({ _id: 0 });
     this.showIDfield = false;
   }
@@ -242,7 +242,7 @@ var Aggregation = class _Aggregation {
       acc[k] = results[index];
       return acc;
     }, {});
-    this.updateDatastoreFromDocs(newDoc);
+    this.currentDS = await this.createDatastoreFromDocs(newDoc);
     this.currentCS = this.currentDS.findAsync({});
     this.showIDfield = false;
   }
@@ -254,28 +254,15 @@ var Aggregation = class _Aggregation {
       docs = await this.currentCS.execAsync();
     }
     const { from, localField, foreignField, as, pipeline = [] } = params;
-    const foreignDS = getClient()._collections[from];
     const localFieldKeys = import_lodash2.default.uniq(
       docs.map((d) => (0, import_model2.getDotValue)(d, localField))
     ).flat();
-    let foreignDocs = [];
-    if (typeof foreignDS !== "undefined") {
-      const foreignPipeline = [
-        {
-          $match: {
-            [foreignField]: { $in: localFieldKeys }
-          }
-        }
-      ];
-      const newAggregation = new _Aggregation({
-        ds: foreignDS,
-        pipeline: foreignPipeline.concat(pipeline),
-        cs: null
-      });
-      foreignDocs = await newAggregation.run();
-    } else {
-      throw new Error("Foreign model doesn't have aggregate function");
-    }
+    const foreignDocs = await this.getForeingDS(
+      from,
+      foreignField,
+      localFieldKeys,
+      pipeline
+    );
     const joiner = new RightJoiner(foreignDocs, docs, {
       foreignField,
       localField,
@@ -283,7 +270,7 @@ var Aggregation = class _Aggregation {
       dropNoMatch: false
     });
     const newDocs = joiner.join();
-    await this.updateDatastoreFromDocs(newDocs);
+    this.currentDS = await this.createDatastoreFromDocs(newDocs);
     this.currentCS = this.currentDS.findAsync({}).sort(this.currentCS?._sort);
   }
   parsePipeline() {
@@ -313,12 +300,47 @@ var Aggregation = class _Aggregation {
       []
     );
   }
-  async updateDatastoreFromDocs(newDocs) {
-    this.currentDS = new import_nedb.default(this.datastoreOptions);
-    await this.currentDS.executor.pushAsync(
-      async () => this.currentDS._resetIndexes(newDocs),
+  async createDatastoreFromDocs(newDocs) {
+    const newDS = new import_nedb.default(this.datastoreOptions);
+    await newDS.executor.pushAsync(
+      async () => newDS._resetIndexes(newDocs),
       true
     );
+    return newDS;
+  }
+  async getForeingDS(from, foreignField, localFieldKeys, pipeline) {
+    const foreignDS = getClient()._collections[from];
+    let foreignDocs = [];
+    if (typeof foreignDS !== "undefined") {
+      if (foreignField in foreignDS.indexes) {
+        const docs = foreignDS.indexes[foreignField].getMatching(localFieldKeys);
+        const newForeignDs = await this.createDatastoreFromDocs(docs);
+        const foreignPipeline = [];
+        const newAggregation = new _Aggregation({
+          ds: newForeignDs,
+          pipeline: foreignPipeline.concat(pipeline),
+          cs: null
+        });
+        foreignDocs = await newAggregation.run();
+      } else {
+        const foreignPipeline = [
+          {
+            $match: {
+              [foreignField]: { $in: localFieldKeys }
+            }
+          }
+        ];
+        const newAggregation = new _Aggregation({
+          ds: foreignDS,
+          pipeline: foreignPipeline.concat(pipeline),
+          cs: null
+        });
+        foreignDocs = await newAggregation.run();
+      }
+    } else {
+      throw new Error("Foreign model doesn't have aggregate function");
+    }
+    return foreignDocs;
   }
   async updateCursorsDatastore() {
     let currentDocs = [];
@@ -431,12 +453,15 @@ function createBaseModel(name, schema) {
       return getClient().ensureIndex(this.collectionName, options);
     }
     static async aggregate(pipeline) {
+      const start = performance.now();
       const aggregateObj = new Aggregation({
         ds: getClient()._collections[this.collectionName],
         cs: null,
         pipeline
       });
       const data = await aggregateObj.run();
+      const end = performance.now();
+      console.log(`GENERAL Aggregation lookup time: ${end - start}ms`);
       return data;
     }
   }
