@@ -6,6 +6,7 @@ import { SaveOptions } from "./types";
 
 const baseDbSchema = object({
   _id: string()
+    .trim()
     .transform((v) => v.toString())
     .notRequired(),
   createdAt: date().notRequired(),
