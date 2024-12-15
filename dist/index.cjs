@@ -99,6 +99,7 @@ var import_yup = require("yup");
 // src/Aggregation.ts
 var import_nedb = __toESM(require("@seald-io/nedb"), 1);
 var import_model2 = require("@seald-io/nedb/lib/model");
+var import_indexes = __toESM(require("@seald-io/nedb/lib/indexes"), 1);
 var import_lodash2 = __toESM(require("lodash"), 1);
 
 // src/utils/RighJoiner.ts
@@ -347,13 +348,14 @@ var Aggregation = class _Aggregation {
     currentDocs = await this.currentCS.execAsync();
     const indexes = this.currentCS.indexes;
     this.currentDS = new import_nedb.default(this.datastoreOptions);
-    await this.currentDS.executor.pushAsync(
-      async () => this.currentDS._resetIndexes(currentDocs),
-      true
-    );
-    if (indexes) {
-      this.currentDS.indexes = indexes;
-    }
+    await this.currentDS.executor.pushAsync(async () => {
+      if (indexes) {
+        Object.keys(indexes).forEach((key) => {
+          this.currentDS.indexes[key] = new import_indexes.default(indexes[key]);
+        });
+      }
+      this.currentDS._resetIndexes(currentDocs);
+    }, true);
     this.currentCS = this.currentDS.findAsync({}).sort(this.currentCS?._sort);
     return currentDocs;
   }
@@ -470,7 +472,7 @@ function createBaseModel(name, schema) {
 
 // src/createModel.ts
 var baseDbSchema = (0, import_yup.object)({
-  _id: (0, import_yup.string)().transform((v) => v.toString()).notRequired(),
+  _id: (0, import_yup.string)().trim().transform((v) => v.toString()).notRequired(),
   createdAt: (0, import_yup.date)().notRequired(),
   updatedAt: (0, import_yup.date)().notRequired()
 });

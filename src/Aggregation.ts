@@ -312,19 +312,19 @@ export default class Aggregation {
 
     // await this.currentDS.insertAsync(currentDocs)
 
-    await this.currentDS.executor.pushAsync(
-      async () => this.currentDS._resetIndexes(currentDocs),
-      true,
-    );
+    await this.currentDS.executor.pushAsync(async () => {
+      // Recreate all indexes in the datastore
+      if (indexes) {
+        // this.currentDS.indexes = indexes;
+        // We can assign indexes directly but i choose to create new 
+        // Maybe we can change it if will not give error for match or other stuff 
+        Object.keys(indexes).forEach((key) => {
+          this.currentDS.indexes[key] = new Index(indexes[key]);
+        });
+      }
 
-    // Recreate all indexes in the datafile
-    if (indexes) {
-      this.currentDS.indexes = indexes;
-
-      // Object.keys(indexes).forEach((key) => {
-      //   this.currentDS.indexes[key] = new Index(indexes[key]);
-      // });
-    }
+      this.currentDS._resetIndexes(currentDocs);
+    }, true);
 
     this.currentCS = this.currentDS.findAsync({}).sort(this.currentCS?._sort);
 
