@@ -590,16 +590,17 @@ var NeDbClient = class _NeDbClient extends DatabaseClient {
   async save(collection, values, options, id) {
     const currentCollection = this._collections[collection];
     const currentSchema = this._schemas[collection];
+    let castedValues = values;
     if (options.validateBeforeSave) {
-      await currentSchema.validate(values);
+      castedValues = await currentSchema.validate(values);
     }
     if (typeof id === "undefined") {
-      const result2 = await currentCollection.insertAsync(values);
+      const result2 = await currentCollection.insertAsync(castedValues);
       return result2;
     }
     const result = await currentCollection.updateAsync(
       { _id: id },
-      { $set: values },
+      { $set: castedValues },
       { upsert: true, returnUpdatedDocs: true }
     );
     if (result.affectedDocuments !== null) {
