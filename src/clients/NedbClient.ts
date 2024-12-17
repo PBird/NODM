@@ -88,19 +88,22 @@ export class NeDbClient extends DatabaseClient {
     const currentCollection = this._collections[collection];
     const currentSchema = this._schemas[collection];
 
+    let castedValues = values;
+
     // validate before save
     if (options.validateBeforeSave) {
-      await currentSchema.validate(values);
+      castedValues = await currentSchema.validate(values);
     }
 
     if (typeof id === "undefined") {
-      const result = await currentCollection.insertAsync<T>(values);
+      const result = await currentCollection.insertAsync<T>(castedValues);
 
       return result;
     }
+
     const result = await currentCollection.updateAsync(
       { _id: id },
-      { $set: values },
+      { $set: castedValues },
       { upsert: true, returnUpdatedDocs: true },
     );
 
