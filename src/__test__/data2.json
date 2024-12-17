@@ -1,0 +1,108 @@
+{
+  "orders": [
+    {
+      "_id": 1,
+      "item": "almonds",
+      "price": 51,
+      "quantity": 2
+    },
+    {
+      "_id": 2,
+      "item": "pecans",
+      "price": 20,
+      "quantity": 1
+    },
+    {
+      "_id": 3
+    },
+    {
+      "_id": 4,
+      "item": "cashews",
+      "price": 12,
+      "quantity": 2
+    },
+    {
+      "_id": 5,
+      "item": "cashews",
+      "price": 12,
+      "quantity": 2
+    },
+    {
+      "_id": 6,
+      "item": "herec",
+      "price": 12,
+      "quantity": 2
+    },
+    {
+      "_id": 7,
+      "item": "direk",
+      "price": 12,
+      "quantity": 2
+    },
+    {
+      "_id": 77,
+      "item": "pokkhh",
+      "price": 12,
+      "quantity": 2
+    }
+  ],
+  "inventory": [
+    {
+      "_id": 1,
+      "sku": "almonds",
+      "description": "product 1",
+      "instock": 120
+    },
+    {
+      "_id": 2,
+      "sku": "bread",
+      "description": "product 2",
+      "instock": 80
+    },
+    {
+      "_id": 3,
+      "sku": "cashews",
+      "description": "product 3",
+      "instock": 60
+    },
+    {
+      "_id": 4,
+      "sku": "pecans",
+      "description": "product 4",
+      "instock": 70
+    },
+    {
+      "_id": 5,
+      "sku": null,
+      "description": "Incomplete"
+    },
+    {
+      "_id": 6,
+      "sku": "herec",
+      "description": "product 6",
+      "instock": -20
+    },
+    {
+      "_id": 7,
+      "sku": "durec",
+      "description": "product 7",
+      "instock": -10
+    },
+    {
+      "_id": 8,
+      "sku": "pojyu",
+      "description": "product 787",
+      "instock": -80
+    },
+    {
+      "_id": 9,
+      "sku": "oymcm",
+      "description": "product 454"
+    },
+    {
+      "_id": 10,
+      "sku": "cmymc",
+      "description": "product 442"
+    }
+  ]
+}
