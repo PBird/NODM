@@ -35,13 +35,10 @@ export default class Aggregation {
 
   pipeline: any[];
 
-  showIDfield: boolean;
-
   constructor({ ds, cs, pipeline }: AggregationOptions) {
     this.currentDS = ds;
     this.currentCS = cs;
     this.pipeline = pipeline;
-    this.showIDfield = true;
 
     this.datastoreOptions = {
       inMemoryOnly: true,
@@ -62,9 +59,6 @@ export default class Aggregation {
 
     if (typeof operator === "undefined") {
       this.currentCS = this.currentCS || this.currentDS.findAsync({});
-      if (!this.showIDfield) {
-        this.currentCS = this.currentCS.projection({ _id: 0 });
-      }
       // @ts-ignore
       // burada eğer currentCursor yeni Datastore oluşturduysa _id yi project etmemesi sağalanac
 
@@ -108,7 +102,6 @@ export default class Aggregation {
 
     this.currentDS = await this.createDatastoreFromDocs(newDocs);
     this.currentCS = this.currentDS.findAsync({}).projection({ _id: 0 });
-    this.showIDfield = false;
   }
 
   async $limit(params: number) {
@@ -173,7 +166,6 @@ export default class Aggregation {
 
     this.currentDS = await this.createDatastoreFromDocs(newDoc);
     this.currentCS = this.currentDS.findAsync({});
-    this.showIDfield = false;
   }
 
   async $lookup(params: any) {
@@ -316,8 +308,8 @@ export default class Aggregation {
       // Recreate all indexes in the datastore
       if (indexes) {
         // this.currentDS.indexes = indexes;
-        // We can assign indexes directly but i choose to create new 
-        // Maybe we can change it if will not give error for match or other stuff 
+        // We can assign indexes directly but i choose to create new
+        // Maybe we can change it if will not give error for match or other stuff
         Object.keys(indexes).forEach((key) => {
           this.currentDS.indexes[key] = new Index(indexes[key]);
         });
