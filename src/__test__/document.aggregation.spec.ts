@@ -6,20 +6,9 @@ import { object, string, number, date, InferType } from "yup";
 import { NeDbClient } from "../clients/NedbClient";
 import { CollectionModel } from "../types";
 import data from "./data.json";
+import { removeFilesByType } from "../utils/helperFile";
 
 const dbPath = path.join(__dirname, "dbFiles/");
-
-async function removeFilesByType(folderPath: string, extensionName: string) {
-  const files = await fs.readdir(folderPath);
-
-  // eslint-disable-next-line
-  for (const file of files) {
-    const filePath = path.join(folderPath, file);
-    if (path.extname(filePath) === extensionName) {
-      await fs.unlink(filePath);
-    }
-  }
-}
 
 describe("Document", () => {
   let db: NeDbClient;

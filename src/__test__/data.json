@@ -163,5 +163,57 @@
         "barcodeType": "UNKNOWN"
       }
     }
+  ],
+  "quizes": [
+    {
+      "_id": 1,
+      "quizzes": [
+        10,
+        6,
+        7
+      ],
+      "labs": [
+        5,
+        8
+      ],
+      "spec": {
+        "color": "blue"
+      },
+      "final": 80,
+      "midterm": 75
+    },
+    {
+      "_id": 2,
+      "quizzes": [
+        9,
+        10
+      ],
+      "labs": [
+        8,
+        8
+      ],
+      "spec": {
+        "color": "yellow"
+      },
+      "final": 95,
+      "midterm": 80
+    },
+    {
+      "_id": 3,
+      "quizzes": [
+        4,
+        5,
+        5
+      ],
+      "labs": [
+        6,
+        5
+      ],
+      "spec": {
+        "color": "yellow"
+      },
+      "final": 78,
+      "midterm": 70
+    }
   ]
 }
