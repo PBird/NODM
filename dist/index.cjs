@@ -65,12 +65,16 @@ var DatabaseClient = class {
 
 // src/clients/NedbClient.ts
 var import_nedb2 = __toESM(require("@seald-io/nedb"), 1);
-var import_model4 = require("@seald-io/nedb/lib/model");
+var import_model7 = __toESM(require("@seald-io/nedb/lib/model"), 1);
 
 // src/Cursor.ts
 var import_cursor = __toESM(require("@seald-io/nedb/lib/cursor"), 1);
+var import_model = __toESM(require("@seald-io/nedb/lib/model"), 1);
 var Cursor = class extends import_cursor.default {
   constructor(db, query, mapFn, options = {}) {
+    if (mapFn === null) {
+      mapFn = (docs) => docs.map((doc) => import_model.default.deepCopy(doc));
+    }
     super(db, query, mapFn);
     this._limit = options.limit;
     this._skip = options.skip;
@@ -83,10 +87,10 @@ var Cursor = class extends import_cursor.default {
 };
 
 // src/utils/hasOperator.ts
-var import_model = require("@seald-io/nedb/lib/model");
+var import_model2 = require("@seald-io/nedb/lib/model");
 function hasOperator(obj) {
   try {
-    (0, import_model.checkObject)(obj);
+    (0, import_model2.checkObject)(obj);
     return false;
   } catch (error) {
     return true;
@@ -96,10 +100,173 @@ function hasOperator(obj) {
 // src/createModel.ts
 var import_yup = require("yup");
 
-// src/Aggregation.ts
+// src/stages/BaseStage.ts
 var import_nedb = __toESM(require("@seald-io/nedb"), 1);
-var import_model2 = require("@seald-io/nedb/lib/model");
 var import_indexes = __toESM(require("@seald-io/nedb/lib/indexes"), 1);
+var BaseStage = class {
+  datastoreOptions;
+  currentDS;
+  currentCS;
+  constructor({ ds, cs }) {
+    this.currentDS = ds;
+    this.currentCS = cs;
+    this.datastoreOptions = {
+      inMemoryOnly: true,
+      // @ts-ignore
+      compareStrings: this.currentDS.compareStrings
+    };
+  }
+  async updateCursorsDatastore() {
+    let currentDocs = [];
+    currentDocs = await this.currentCS.execAsync();
+    const indexes = this.currentDS.indexes;
+    this.currentDS = new import_nedb.default(this.datastoreOptions);
+    await this.currentDS.executor.pushAsync(async () => {
+      if (indexes) {
+        Object.keys(indexes).forEach((key) => {
+          this.currentDS.indexes[key] = new import_indexes.default(indexes[key]);
+        });
+      }
+      this.currentDS._resetIndexes(currentDocs);
+    }, true);
+    this.currentCS = new Cursor(this.currentDS, {}, null, {
+      sort: this.currentCS?._sort
+    });
+    return currentDocs;
+  }
+  async createDatastoreFromDocs(newDocs) {
+    const newDS = new import_nedb.default(this.datastoreOptions);
+    await newDS.executor.pushAsync(
+      async () => newDS._resetIndexes(newDocs),
+      true
+    );
+    const newCS = new Cursor(newDS, {}, null);
+    return { ds: newDS, cs: newCS };
+  }
+};
+
+// src/stages/$limit.ts
+var $limit = class extends BaseStage {
+  limit;
+  constructor({ params, ds, cs }) {
+    super({ ds, cs });
+    if (!Number.isInteger(params)) {
+      throw new Error(`Expected an integer: $limit: ${params}`);
+    }
+    this.limit = params;
+  }
+  async run() {
+    if (this.currentCS === null) {
+      this.currentCS = new Cursor(this.currentDS, {}, null, {
+        limit: this.limit
+      });
+    } else {
+      this.currentCS.limit(this.limit);
+    }
+  }
+};
+
+// src/stages/$sort.ts
+var $sort = class extends BaseStage {
+  sort;
+  constructor({ params, ds, cs }) {
+    super({ ds, cs });
+    this.sort = params;
+  }
+  async run() {
+    if (this.currentCS === null) {
+      this.currentCS = new Cursor(this.currentDS, {}, null, {
+        sort: this.sort
+      });
+    } else {
+      this.currentCS.sort(this.sort);
+    }
+  }
+};
+
+// src/stages/$facet.ts
+var $facet = class extends BaseStage {
+  query;
+  constructor({ params, ds, cs }) {
+    super({ ds, cs });
+    this.query = params;
+  }
+  async run() {
+    const resultPromisses = [];
+    const fieldKeys = [];
+    if (this.currentCS !== null) {
+      await this.updateCursorsDatastore();
+    }
+    Object.entries(this.query).forEach(([fieldKey, value]) => {
+      if (!Array.isArray(value)) {
+        throw new Error(
+          `arguments to $facet must be arrays, ${fieldKey} is type ${typeof value}`
+        );
+      }
+      const tempCS = new Cursor(this.currentDS, {}, null, {
+        sort: this.currentCS?._sort
+      });
+      const newAggregation = new Aggregation({
+        cs: tempCS,
+        ds: this.currentDS,
+        params: value
+      });
+      const aggProm = newAggregation.run();
+      fieldKeys.push(fieldKey);
+      resultPromisses.push(aggProm);
+    });
+    const results = await Promise.all(resultPromisses);
+    const newDoc = fieldKeys.reduce((acc, k, index) => {
+      acc[k] = results[index];
+      return acc;
+    }, {});
+    const { ds, cs } = await this.createDatastoreFromDocs([newDoc]);
+    this.currentDS = ds;
+    this.currentCS = cs;
+  }
+};
+
+// src/stages/$skip.ts
+var $skip = class extends BaseStage {
+  skip;
+  constructor({ params, ds, cs }) {
+    super({ ds, cs });
+    if (!Number.isInteger(params)) {
+      throw new Error(`Expected an integer: $skip: ${params}`);
+    }
+    this.skip = params;
+  }
+  async run() {
+    if (this.currentCS === null) {
+      this.currentCS = new Cursor(this.currentDS, {}, null, {
+        skip: this.skip
+      });
+    } else {
+      this.currentCS.skip(this.skip);
+    }
+  }
+};
+
+// src/stages/$project.ts
+var $project = class extends BaseStage {
+  project;
+  constructor({ params, ds, cs }) {
+    super({ ds, cs });
+    this.project = params;
+  }
+  async run() {
+    if (this.currentCS === null) {
+      this.currentCS = new Cursor(this.currentDS, {}, null, {
+        projection: this.project
+      });
+    } else {
+      this.currentCS.projection(this.project);
+    }
+  }
+};
+
+// src/stages/$lookup.ts
+var import_model3 = __toESM(require("@seald-io/nedb/lib/model"), 1);
 var import_lodash2 = __toESM(require("lodash"), 1);
 
 // src/utils/RighJoiner.ts
@@ -138,125 +305,23 @@ var RightJoiner = class {
   }
 };
 
-// src/Aggregation.ts
-var Aggregation = class _Aggregation {
-  currentDS;
-  currentCS;
-  datastoreOptions;
-  currentPipeline;
-  pipeline;
-  showIDfield;
-  constructor({ ds, cs, pipeline }) {
-    this.currentDS = ds;
-    this.currentCS = cs;
-    this.pipeline = pipeline;
-    this.showIDfield = true;
-    this.datastoreOptions = {
-      inMemoryOnly: true,
-      // @ts-ignore
-      compareStrings: this.currentDS.compareStrings
-    };
-    this.parsePipeline();
+// src/stages/$lookup.ts
+var $lookup = class extends BaseStage {
+  query;
+  constructor({ params, ds, cs }) {
+    super({ ds, cs });
+    this.query = params;
   }
-  run() {
-    return this._aggregate();
-  }
-  // eslint-disable-next-line
-  async _aggregate() {
-    const operator = this.currentPipeline.shift();
-    if (typeof operator === "undefined") {
-      this.currentCS = this.currentCS || this.currentDS.findAsync({});
-      if (!this.showIDfield) {
-        this.currentCS = this.currentCS.projection({ _id: 0 });
-      }
-      return this.currentCS.execAsync();
-    }
-    await this[operator.name](operator.params);
-    return this._aggregate();
-  }
-  async $match(params) {
-    if (this.currentCS !== null) {
-      await this.updateCursorsDatastore();
-      this.currentCS.query = params;
-      this.currentCS.mapFn = (docs) => docs.map((doc) => (0, import_model2.deepCopy)(doc));
-    } else {
-      this.currentCS = this.currentDS.findAsync(params);
-    }
-  }
-  async $count(params) {
-    let countDocs = 0;
-    if (this.currentCS !== null) {
-      countDocs = (await this.updateCursorsDatastore()).length;
-      this.currentCS.mapFn = (docs) => docs.length;
-    } else {
-      countDocs = await this.currentDS.countAsync({});
-    }
-    const newDocs = [
-      {
-        [params]: countDocs
-      }
-    ];
-    this.currentDS = await this.createDatastoreFromDocs(newDocs);
-    this.currentCS = this.currentDS.findAsync({}).projection({ _id: 0 });
-    this.showIDfield = false;
-  }
-  async $limit(params) {
-    this.currentCS = this.currentCS || this.currentDS.findAsync({});
-    this.currentCS = this.currentCS.limit(params);
-  }
-  async $skip(params) {
-    this.currentCS = this.currentCS || this.currentDS.findAsync({});
-    this.currentCS = this.currentCS.skip(params);
-  }
-  async $sort(params) {
-    this.currentCS = this.currentCS || this.currentDS.findAsync({});
-    this.currentCS = this.currentCS.sort(params);
-  }
-  async $project(params) {
-    this.currentCS = this.currentCS || this.currentDS.findAsync({});
-    this.currentCS = this.currentCS.projection(params);
-  }
-  async $facet(params) {
-    const resultPromisses = [];
-    const fieldKeys = [];
-    if (this.currentCS !== null) {
-      await this.updateCursorsDatastore();
-    }
-    Object.entries(params).forEach(([fieldKey, value]) => {
-      if (!Array.isArray(value)) {
-        throw new Error(
-          `arguments to $facet must be arrays, ${fieldKey} is type ${typeof value}`
-        );
-      }
-      const tempCS = this.currentDS.findAsync({}).sort(this.currentCS?._sort);
-      const newAggregation = new _Aggregation({
-        cs: tempCS,
-        ds: this.currentDS,
-        pipeline: value
-      });
-      const aggProm = newAggregation.run();
-      fieldKeys.push(fieldKey);
-      resultPromisses.push(aggProm);
-    });
-    const results = await Promise.all(resultPromisses);
-    const newDoc = fieldKeys.reduce((acc, k, index) => {
-      acc[k] = results[index];
-      return acc;
-    }, {});
-    this.currentDS = await this.createDatastoreFromDocs(newDoc);
-    this.currentCS = this.currentDS.findAsync({});
-    this.showIDfield = false;
-  }
-  async $lookup(params) {
+  async run() {
     let docs = [];
     if (this.currentCS === null) {
       docs = this.currentDS.getAllData();
     } else {
       docs = await this.currentCS.execAsync();
     }
-    const { from, localField, foreignField, as, pipeline = [] } = params;
+    const { from, localField, foreignField, as, pipeline = [] } = this.query;
     const localFieldKeys = import_lodash2.default.uniq(
-      docs.map((d) => (0, import_model2.getDotValue)(d, localField))
+      docs.map((d) => import_model3.default.getDotValue(d, localField))
     ).flat();
     const foreignDocs = await this.getForeingDS(
       from,
@@ -271,24 +336,269 @@ var Aggregation = class _Aggregation {
       dropNoMatch: false
     });
     const newDocs = joiner.join();
-    this.currentDS = await this.createDatastoreFromDocs(newDocs);
-    this.currentCS = this.currentDS.findAsync({}).sort(this.currentCS?._sort);
+    const { cs, ds } = await this.createDatastoreFromDocs(newDocs);
+    this.currentDS = ds;
+    this.currentCS = cs.sort(this.currentCS?._sort);
+  }
+  async getForeingDS(from, foreignField, localFieldKeys, pipeline) {
+    const foreignDS = getClient()._collections[from];
+    let foreignDocs = [];
+    if (typeof foreignDS !== "undefined") {
+      if (foreignField in foreignDS.indexes) {
+        const docs = foreignDS.indexes[foreignField].getMatching(localFieldKeys);
+        const { ds: newForeignDs } = await this.createDatastoreFromDocs(docs);
+        const foreignPipeline = [];
+        const newAggregation = new Aggregation({
+          ds: newForeignDs,
+          cs: null,
+          params: foreignPipeline.concat(pipeline)
+        });
+        foreignDocs = await newAggregation.run();
+      } else {
+        const foreignPipeline = [
+          {
+            $match: {
+              [foreignField]: { $in: localFieldKeys }
+            }
+          }
+        ];
+        const newAggregation = new Aggregation({
+          ds: foreignDS,
+          cs: null,
+          params: foreignPipeline.concat(pipeline)
+        });
+        foreignDocs = await newAggregation.run();
+      }
+    } else {
+      throw new Error("Foreign model doesn't have aggregate function");
+    }
+    return foreignDocs;
+  }
+};
+
+// src/stages/$match.ts
+var import_model4 = __toESM(require("@seald-io/nedb/lib/model"), 1);
+var $match = class extends BaseStage {
+  query;
+  constructor({ params, ds, cs }) {
+    super({ ds, cs });
+    this.query = params;
+  }
+  async run() {
+    if (this.currentCS !== null) {
+      await this.updateCursorsDatastore();
+      this.currentCS.query = this.query;
+      this.currentCS.mapFn = (docs) => docs.map((doc) => import_model4.default.deepCopy(doc));
+    } else {
+      this.currentCS = new Cursor(
+        this.currentDS,
+        this.query,
+        (docs) => docs.map((doc) => import_model4.default.deepCopy(doc))
+      );
+    }
+  }
+};
+
+// src/stages/$count.ts
+var $count = class extends BaseStage {
+  countText;
+  constructor({ params, ds, cs }) {
+    super({ ds, cs });
+    this.countText = params;
+  }
+  async run() {
+    let countDocs = 0;
+    if (this.currentCS !== null) {
+      countDocs = (await this.updateCursorsDatastore()).length;
+    } else {
+      countDocs = await this.currentDS.countAsync({});
+    }
+    const newDocs = [
+      {
+        [this.countText]: countDocs
+      }
+    ];
+    const { cs, ds } = await this.createDatastoreFromDocs(newDocs);
+    this.currentCS = cs;
+    this.currentDS = ds;
+  }
+};
+
+// src/stages/$addFields.ts
+var import_lodash3 = __toESM(require("lodash"), 1);
+
+// src/expressionHelpers.ts
+var import_model5 = __toESM(require("@seald-io/nedb/lib/model"), 1);
+function getExpressionValue(data, exp) {
+  if (typeof exp === "string" && exp.startsWith("$")) {
+    if (Array.isArray(data)) {
+      const docs = { docs: data };
+      const loc = `docs.${exp.split("$")[1]}`;
+      return import_model5.default.getDotValue(docs, loc);
+    } else {
+      const loc = `${exp.split("$")[1]}`;
+      return import_model5.default.getDotValue(data, loc);
+    }
+  }
+  return exp;
+}
+
+// src/operators/$sum.ts
+function $sum(data, val) {
+  if (Array.isArray(data)) {
+    if (Array.isArray(val)) {
+      throw new Error("The $sum accumulator is a unary operator");
+    }
+    const result = data.reduce((acc, curr) => {
+      if (typeof val === "number") {
+        acc = acc + val;
+      } else {
+        const v = getExpressionValue(curr, val);
+        if (typeof v === "number") {
+          acc = acc + v;
+        }
+      }
+      return acc;
+    }, 0);
+    return result;
+  } else {
+    if (Array.isArray(val) && val.length > 1) {
+      const result = val.reduce((acc, curr) => {
+        const v = getExpressionValue(data, curr);
+        if (typeof v === "number") {
+          return v + acc;
+        }
+        return acc;
+      }, 0);
+      return result;
+    } else {
+      const currVal = Array.isArray(val) ? val[0] : val;
+      const v = getExpressionValue(data, currVal);
+      const arrV = [].concat(v);
+      return arrV.reduce((acc, curr) => {
+        if (typeof curr === "number") {
+          return acc + curr;
+        }
+        return acc;
+      }, 0);
+    }
+  }
+}
+
+// src/calcExpression.ts
+var operators = { $sum };
+function calcObject(data, exp) {
+  return Object.entries(exp).reduce((acc, [key, val]) => {
+    if (typeof operators[key] !== void 0) {
+      return operators[key](data, val);
+    } else {
+      const newAcc = {
+        ...acc,
+        [key]: calcExpression(data, val)
+      };
+      return newAcc;
+    }
+  }, {});
+}
+function calcExpression(data, exp) {
+  if (Array.isArray(exp)) {
+    return exp.map((e) => {
+      return calcExpression(data, e);
+    });
+  } else if (typeof exp === "object" && exp !== null) {
+    return calcObject(data, exp);
+  } else {
+    return getExpressionValue(data, exp);
+  }
+}
+
+// src/stages/$addFields.ts
+var $addFields = class extends BaseStage {
+  query;
+  constructor({ params, ds, cs }) {
+    super({ ds, cs });
+    this.query = params;
+    if (typeof this.query !== "object" && this.query === null && Array.isArray(this.query)) {
+      throw new Error("$addFields specification stage must be an object");
+    }
+    if (Object.keys(params).find((s) => s.startsWith("$"))) {
+      throw new Error("FieldPath field names may not start with $");
+    }
+  }
+  async run() {
+    let docs = [];
+    if (this.currentCS !== null) {
+      docs = await this.currentCS.execAsync();
+    } else {
+      docs = this.currentDS.getAllData();
+    }
+    const newDocs = docs.map((doc) => {
+      const newVarObj = Object.entries(this.query).reduce((acc, [key, exp]) => {
+        return {
+          ...acc,
+          [key]: calcExpression(doc, exp)
+        };
+      }, {});
+      return import_lodash3.default.assign(doc, newVarObj);
+    });
+    const { ds, cs } = await this.createDatastoreFromDocs(newDocs);
+    this.currentCS = cs;
+    this.currentDS = ds;
+  }
+};
+
+// src/Aggregation.ts
+var Aggregation = class extends BaseStage {
+  currentPipeline;
+  pipeline;
+  stages = {
+    $count,
+    $facet,
+    $limit,
+    $lookup,
+    $match,
+    $project,
+    $skip,
+    $sort,
+    $addFields
+  };
+  constructor({ ds, cs, params }) {
+    super({ ds, cs });
+    this.pipeline = params;
+    this.parsePipeline();
+  }
+  run() {
+    return this._aggregate();
+  }
+  async _aggregate() {
+    const operator = this.currentPipeline.shift();
+    if (typeof operator === "undefined") {
+      this.currentCS = this.currentCS || new Cursor(this.currentDS, {}, null);
+      return this.currentCS.execAsync();
+    }
+    const stage = new this.stages[operator.name]({
+      ds: this.currentDS,
+      cs: this.currentCS,
+      params: operator.params
+    });
+    await stage.run();
+    this.currentDS = stage.currentDS;
+    this.currentCS = stage.currentCS;
+    return this._aggregate();
   }
   parsePipeline() {
     this.currentPipeline = this.pipeline.reduce(
       (acc, p) => {
         const stages = Object.keys(p);
         if (stages.length <= 1) {
-          const [operatorName] = stages;
-          const method = this[operatorName];
-          if (!(typeof method === "function" && operatorName.startsWith("$"))) {
-            throw new Error(
-              `aggregate: Operator not defined -> ${operatorName}`
-            );
+          const [stageName] = stages;
+          const stage = this.stages[stageName];
+          if (!(typeof stage !== "undefined" && stageName.startsWith("$"))) {
+            throw new Error(`aggregate: Operator not defined -> ${stageName}`);
           }
-          const params = p[operatorName];
+          const params = p[stageName];
           const operator = {
-            name: operatorName,
+            name: stageName,
             params
           };
           acc.push(operator);
@@ -300,64 +610,6 @@ var Aggregation = class _Aggregation {
       },
       []
     );
-  }
-  async createDatastoreFromDocs(newDocs) {
-    const newDS = new import_nedb.default(this.datastoreOptions);
-    await newDS.executor.pushAsync(
-      async () => newDS._resetIndexes(newDocs),
-      true
-    );
-    return newDS;
-  }
-  async getForeingDS(from, foreignField, localFieldKeys, pipeline) {
-    const foreignDS = getClient()._collections[from];
-    let foreignDocs = [];
-    if (typeof foreignDS !== "undefined") {
-      if (foreignField in foreignDS.indexes) {
-        const docs = foreignDS.indexes[foreignField].getMatching(localFieldKeys);
-        const newForeignDs = await this.createDatastoreFromDocs(docs);
-        const foreignPipeline = [];
-        const newAggregation = new _Aggregation({
-          ds: newForeignDs,
-          pipeline: foreignPipeline.concat(pipeline),
-          cs: null
-        });
-        foreignDocs = await newAggregation.run();
-      } else {
-        const foreignPipeline = [
-          {
-            $match: {
-              [foreignField]: { $in: localFieldKeys }
-            }
-          }
-        ];
-        const newAggregation = new _Aggregation({
-          ds: foreignDS,
-          pipeline: foreignPipeline.concat(pipeline),
-          cs: null
-        });
-        foreignDocs = await newAggregation.run();
-      }
-    } else {
-      throw new Error("Foreign model doesn't have aggregate function");
-    }
-    return foreignDocs;
-  }
-  async updateCursorsDatastore() {
-    let currentDocs = [];
-    currentDocs = await this.currentCS.execAsync();
-    const indexes = this.currentCS.indexes;
-    this.currentDS = new import_nedb.default(this.datastoreOptions);
-    await this.currentDS.executor.pushAsync(async () => {
-      if (indexes) {
-        Object.keys(indexes).forEach((key) => {
-          this.currentDS.indexes[key] = new import_indexes.default(indexes[key]);
-        });
-      }
-      this.currentDS._resetIndexes(currentDocs);
-    }, true);
-    this.currentCS = this.currentDS.findAsync({}).sort(this.currentCS?._sort);
-    return currentDocs;
   }
 };
 
@@ -459,7 +711,7 @@ function createBaseModel(name, schema) {
       const aggregateObj = new Aggregation({
         ds: getClient()._collections[this.collectionName],
         cs: null,
-        pipeline
+        params: pipeline
       });
       const data = await aggregateObj.run();
       const end = performance.now();
@@ -521,21 +773,21 @@ function createModel(collectionName, schema) {
 }
 
 // src/utils.ts
-var import_model3 = __toESM(require("@seald-io/nedb/lib/model"), 1);
+var import_model6 = __toESM(require("@seald-io/nedb/lib/model"), 1);
 async function castAndValidateOnUpserting(schema, query, updateQ) {
   let toBeInserted;
   try {
-    import_model3.default.checkObject(updateQ);
+    import_model6.default.checkObject(updateQ);
     toBeInserted = updateQ;
   } catch (e) {
-    toBeInserted = import_model3.default.modify(import_model3.default.deepCopy(query, true), updateQ);
+    toBeInserted = import_model6.default.modify(import_model6.default.deepCopy(query, true), updateQ);
   }
   const validatedData = await schema.validate(toBeInserted);
   return validatedData;
 }
 async function castAndValidateOnUpdate(schema, oldDoc, updateQ, overwrite) {
   if (overwrite || hasOperator(updateQ)) {
-    const newDoc = import_model3.default.modify(import_model3.default.deepCopy(oldDoc), updateQ);
+    const newDoc = import_model6.default.modify(import_model6.default.deepCopy(oldDoc), updateQ);
     const castedData = await schema.validate(newDoc);
     return { updateQ, castedData };
   } else {
@@ -650,7 +902,7 @@ var NeDbClient = class _NeDbClient extends DatabaseClient {
     const cursor = new Cursor(
       currentCollection,
       query,
-      (docs) => docs.length === 1 ? (0, import_model4.deepCopy)(docs[0]) : null,
+      (docs) => docs.length === 1 ? import_model7.default.deepCopy(docs[0]) : null,
       {
         projection,
         limit: 1
@@ -771,7 +1023,7 @@ var NeDbClient = class _NeDbClient extends DatabaseClient {
     const cursor = new Cursor(
       currentCollection,
       query,
-      (docs) => docs.map((doc) => (0, import_model4.deepCopy)(doc)),
+      (docs) => docs.map((doc) => import_model7.default.deepCopy(doc)),
       options
     );
     const results = await cursor;
