@@ -122,7 +122,7 @@ export default function createBaseModel<T extends AnyObject>(
     }
 
     static async aggregate(pipeline: any[]): Promise<any[]> {
-      const start = performance.now()
+      // const start = performance.now()
       const aggregateObj = new Aggregation({
         ds: db()._collections[this.collectionName],
         cs: null,
@@ -130,9 +130,9 @@ export default function createBaseModel<T extends AnyObject>(
       });
       const data = await aggregateObj.run();
 
-      const end = performance.now()
+      // const end = performance.now()
 
-    console.log(`GENERAL Aggregation lookup time: ${end - start}ms`);
+    // console.log(`GENERAL Aggregation lookup time: ${end - start}ms`);
       return data;
     }
   }
