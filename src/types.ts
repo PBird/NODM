@@ -1,5 +1,13 @@
 import { AnyObject } from "yup";
+import Datastore from "@seald-io/nedb";
 import type { createModel } from "./createModel";
+import Cursor from "./Cursor";
+
+export type StageOptions<T> = {
+  ds: Datastore<T>;
+  cs: Cursor<T> | null;
+  params: any;
+};
 
 export type DBFields = {
   _id?: string;

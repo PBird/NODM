@@ -1,7 +1,7 @@
 import path from "path";
 import DatabaseClient from "./DatabaseClient";
 import Datastore from "@seald-io/nedb";
-import { deepCopy } from "@seald-io/nedb/lib/model";
+import NeDBModel from "@seald-io/nedb/lib/model";
 import _ from "lodash";
 import { AnyObject, AnySchema, Maybe, ObjectSchema } from "yup";
 import Cursor from "../Cursor";
@@ -170,7 +170,7 @@ export class NeDbClient extends DatabaseClient {
     const cursor = new Cursor<T>(
       currentCollection,
       query,
-      (docs) => (docs.length === 1 ? deepCopy(docs[0]) : null),
+      (docs) => (docs.length === 1 ? NeDBModel.deepCopy(docs[0]) : null),
       {
         projection,
         limit: 1,
@@ -333,7 +333,7 @@ export class NeDbClient extends DatabaseClient {
     const cursor = new Cursor<T[]>(
       currentCollection,
       query,
-      (docs) => docs.map((doc) => deepCopy(doc)),
+      (docs) => docs.map((doc) => NeDBModel.deepCopy(doc)),
       options,
     );
 
