@@ -27,6 +27,8 @@ export default abstract class BaseStage<T> {
       // @ts-ignore
       compareStrings: this.currentDS.compareStrings,
     };
+
+    this.operators = {}
   }
 
   abstract run(): Promise<void>;
