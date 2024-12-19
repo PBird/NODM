@@ -2,11 +2,12 @@ import NeDbModel from "@seald-io/nedb/lib/model";
 import _ from "lodash";
 import BaseStage from "./BaseStage";
 import { StageOptions } from "../types";
-import Cursor from "../Cursor";
-import { calcExpression } from "../calcExpression";
+import $sum from "../operators/$sum";
 
 export default class $addFields<T> extends BaseStage<T> {
   query: any;
+
+  operators = { $sum };
 
   constructor({ params, ds, cs }: StageOptions<T>) {
     super({ ds, cs });
@@ -36,7 +37,7 @@ export default class $addFields<T> extends BaseStage<T> {
       const newVarObj = Object.entries(this.query).reduce((acc, [key, exp]) => {
         return {
           ...acc,
-          [key]: calcExpression(doc, exp),
+          [key]: this.calcExpression(doc, exp),
         };
       }, {});
       return _.assign(doc, newVarObj);

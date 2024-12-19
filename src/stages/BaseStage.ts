@@ -1,6 +1,7 @@
 import Datastore from "@seald-io/nedb";
 import Index from "@seald-io/nedb/lib/indexes";
 import Cursor from "../Cursor";
+import { getExpressionValue } from "../expressionHelpers";
 
 type BaseOperatorOptions<T> = {
   ds: Datastore;
@@ -13,6 +14,8 @@ export default abstract class BaseStage<T> {
   currentDS: Datastore<T>;
 
   currentCS: Cursor<T> | null;
+
+  operators: Record<string, any>;
 
   constructor({ ds, cs }: BaseOperatorOptions<T>) {
     this.currentDS = ds;
@@ -71,5 +74,31 @@ export default abstract class BaseStage<T> {
     const newCS = new Cursor<O>(newDS, {}, null);
 
     return { ds: newDS, cs: newCS };
+  }
+
+  private calcObject(data, exp) {
+    return Object.entries(exp).reduce((acc, [key, val]) => {
+      if (typeof this.operators[key] !== undefined) {
+        return this.operators[key](data, val);
+      } else {
+        const newAcc = {
+          ...acc,
+          [key]: this.calcExpression(data, val),
+        };
+        return newAcc;
+      }
+    }, {});
+  }
+
+  calcExpression(data, exp) {
+    if (Array.isArray(exp)) {
+      return exp.map((e) => {
+        return this.calcExpression(data, e);
+      });
+    } else if (typeof exp === "object" && exp !== null) {
+      return this.calcObject(data, exp);
+    } else {
+      return getExpressionValue(data, exp);
+    }
   }
 }
