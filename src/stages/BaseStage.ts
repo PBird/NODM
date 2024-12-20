@@ -28,7 +28,7 @@ export default abstract class BaseStage<T> {
       compareStrings: this.currentDS.compareStrings,
     };
 
-    this.operators = {}
+    this.operators = {};
   }
 
   abstract run(): Promise<void>;
@@ -79,13 +79,26 @@ export default abstract class BaseStage<T> {
   }
 
   private calcObject(data, exp) {
-    return Object.entries(exp).reduce((acc, [key, val]) => {
-      if (typeof this.operators[key] !== undefined) {
-        return this.operators[key](data, val);
+    let singleton = false;
+    return Object.entries(exp).reduce((acc, [key, params]) => {
+      if (typeof this.operators[key] !== "undefined") {
+        const opt = new this.operators[key]({ data, params });
+        const res = opt.run();
+        if (res !== undefined) {
+          singleton = true;
+          return res;
+        } else {
+          return acc;
+        }
       } else {
+        if (singleton) {
+          throw new Error(
+            "an expression specification must contain exactly one field",
+          );
+        }
         const newAcc = {
           ...acc,
-          [key]: this.calcExpression(data, val),
+          [key]: this.calcExpression(data, params),
         };
         return newAcc;
       }

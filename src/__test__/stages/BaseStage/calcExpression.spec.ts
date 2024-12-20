@@ -3,11 +3,11 @@ import BaseStage from "../../../stages/BaseStage";
 import { testDbPath } from "../../constants";
 import data from "../../data.json";
 import path from "path";
-import $sum from "../../../operators/$sum";
+import $sum from "../../../operators/Accumulators/$sum";
 
 describe("Stages/BaseStage->calcExpression", () => {
   class $testStage<T> extends BaseStage<T> {
-    operators = {$sum};
+    operators = { $sum };
 
     constructor({ params, ds, cs }) {
       super({ ds, cs });
@@ -63,5 +63,46 @@ describe("Stages/BaseStage->calcExpression", () => {
     const finalSum = testStage.calcExpression(data.quizes, { $sum: "$final" });
 
     expect(finalSum).toEqual(data.quizes.reduce((acc, q) => acc + q.final, 0));
+  });
+
+  test("SHOULD calcExpression object", () => {
+    const finalSum = testStage.calcExpression(data.quizes, {
+      test1: "$final",
+      test2: 123,
+    });
+
+    expect(finalSum).toEqual({
+      test1: data.quizes.map((q) => q.final),
+      test2: 123,
+    });
+  });
+
+  test("SHOULD calcExpression in object sum", () => {
+    const finalSum = testStage.calcExpression(data.quizes, {
+      test1: "$final",
+      test2: 123,
+      test3: { testin: { $sum: "$final" } },
+    });
+
+    expect(finalSum).toEqual({
+      test1: data.quizes.map((q) => q.final),
+      test2: 123,
+      test3: { testin: data.quizes.reduce((acc, q) => acc + q.final, 0) },
+    });
+  });
+
+  test("SHOULD calcExpression give error", () => {
+    expect.assertions(1);
+    try {
+      testStage.calcExpression(data.quizes, {
+        deneme: { $sum: "$final", name: 2 },
+      });
+    } catch (error) {
+      expect(error.message).toBe(
+        "an expression specification must contain exactly one field",
+      );
+    }
+
+    // expect(finalSum).toEqual(data.quizes.reduce((acc, q) => acc + q.final, 0));
   });
 });

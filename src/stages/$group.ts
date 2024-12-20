@@ -20,4 +20,25 @@ export class $group<T> extends BaseStage<T> {
       docs = await this.currentCS.execAsync();
     }
   }
+
+
+
+   // $group: {
+   //    _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },  // Her günü gruplayarak tarihi biçimlendiriyoruz
+   //    products: { $push: "$$ROOT" }  // Her gün için ürünlerin tamamını listele
+   //  }
+
+  // group stage i her bir key içine sadece accumulator alıyor, örneğin $sum, $push
+  // protected checkOperator(exp) {
+  //   const keys = Object.keys(exp);
+  //   if (keys.length > 1) {
+  //     keys.forEach((key) => {
+  //       if (typeof this.operators[key] !== "undefined") {
+  //         if (this.operators[key].operatorType === "accumulator") {
+  //           throw new Error(`The field must specify one accumulator`);
+  //         }
+  //       }
+  //     });
+  //   }
+  // }
 }

@@ -2,7 +2,7 @@ import NeDbModel from "@seald-io/nedb/lib/model";
 import _ from "lodash";
 import BaseStage from "./BaseStage";
 import { StageOptions } from "../types";
-import $sum from "../operators/$sum";
+import $sum from "../operators/Accumulators/$sum";
 
 export default class $addFields<T> extends BaseStage<T> {
   query: any;

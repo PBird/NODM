@@ -103,10 +103,29 @@ var import_yup = require("yup");
 // src/stages/BaseStage.ts
 var import_nedb = __toESM(require("@seald-io/nedb"), 1);
 var import_indexes = __toESM(require("@seald-io/nedb/lib/indexes"), 1);
+
+// src/expressionHelpers.ts
+var import_model3 = __toESM(require("@seald-io/nedb/lib/model"), 1);
+function getExpressionValue(data, exp) {
+  if (typeof exp === "string" && exp.startsWith("$")) {
+    if (Array.isArray(data)) {
+      const docs = { docs: data };
+      const loc = `docs.${exp.split("$")[1]}`;
+      return import_model3.default.getDotValue(docs, loc);
+    } else {
+      const loc = `${exp.split("$")[1]}`;
+      return import_model3.default.getDotValue(data, loc);
+    }
+  }
+  return exp;
+}
+
+// src/stages/BaseStage.ts
 var BaseStage = class {
   datastoreOptions;
   currentDS;
   currentCS;
+  operators;
   constructor({ ds, cs }) {
     this.currentDS = ds;
     this.currentCS = cs;
@@ -115,6 +134,7 @@ var BaseStage = class {
       // @ts-ignore
       compareStrings: this.currentDS.compareStrings
     };
+    this.operators = {};
   }
   async updateCursorsDatastore() {
     let currentDocs = [];
@@ -142,6 +162,43 @@ var BaseStage = class {
     );
     const newCS = new Cursor(newDS, {}, null);
     return { ds: newDS, cs: newCS };
+  }
+  calcObject(data, exp) {
+    let singleton = false;
+    return Object.entries(exp).reduce((acc, [key, params]) => {
+      if (typeof this.operators[key] !== "undefined") {
+        const opt = new this.operators[key]({ data, params });
+        const res = opt.run();
+        if (res !== void 0) {
+          singleton = true;
+          return res;
+        } else {
+          return acc;
+        }
+      } else {
+        if (singleton) {
+          throw new Error(
+            "an expression specification must contain exactly one field"
+          );
+        }
+        const newAcc = {
+          ...acc,
+          [key]: this.calcExpression(data, params)
+        };
+        return newAcc;
+      }
+    }, {});
+  }
+  calcExpression(data, exp) {
+    if (Array.isArray(exp)) {
+      return exp.map((e) => {
+        return this.calcExpression(data, e);
+      });
+    } else if (typeof exp === "object" && exp !== null) {
+      return this.calcObject(data, exp);
+    } else {
+      return getExpressionValue(data, exp);
+    }
   }
 };
 
@@ -266,7 +323,7 @@ var $project = class extends BaseStage {
 };
 
 // src/stages/$lookup.ts
-var import_model3 = __toESM(require("@seald-io/nedb/lib/model"), 1);
+var import_model4 = __toESM(require("@seald-io/nedb/lib/model"), 1);
 var import_lodash2 = __toESM(require("lodash"), 1);
 
 // src/utils/RighJoiner.ts
@@ -321,7 +378,7 @@ var $lookup = class extends BaseStage {
     }
     const { from, localField, foreignField, as, pipeline = [] } = this.query;
     const localFieldKeys = import_lodash2.default.uniq(
-      docs.map((d) => import_model3.default.getDotValue(d, localField))
+      docs.map((d) => import_model4.default.getDotValue(d, localField))
     ).flat();
     const foreignDocs = await this.getForeingDS(
       from,
@@ -377,7 +434,7 @@ var $lookup = class extends BaseStage {
 };
 
 // src/stages/$match.ts
-var import_model4 = __toESM(require("@seald-io/nedb/lib/model"), 1);
+var import_model5 = __toESM(require("@seald-io/nedb/lib/model"), 1);
 var $match = class extends BaseStage {
   query;
   constructor({ params, ds, cs }) {
@@ -388,12 +445,12 @@ var $match = class extends BaseStage {
     if (this.currentCS !== null) {
       await this.updateCursorsDatastore();
       this.currentCS.query = this.query;
-      this.currentCS.mapFn = (docs) => docs.map((doc) => import_model4.default.deepCopy(doc));
+      this.currentCS.mapFn = (docs) => docs.map((doc) => import_model5.default.deepCopy(doc));
     } else {
       this.currentCS = new Cursor(
         this.currentDS,
         this.query,
-        (docs) => docs.map((doc) => import_model4.default.deepCopy(doc))
+        (docs) => docs.map((doc) => import_model5.default.deepCopy(doc))
       );
     }
   }
@@ -427,94 +484,95 @@ var $count = class extends BaseStage {
 // src/stages/$addFields.ts
 var import_lodash3 = __toESM(require("lodash"), 1);
 
-// src/expressionHelpers.ts
-var import_model5 = __toESM(require("@seald-io/nedb/lib/model"), 1);
-function getExpressionValue(data, exp) {
-  if (typeof exp === "string" && exp.startsWith("$")) {
-    if (Array.isArray(data)) {
-      const docs = { docs: data };
-      const loc = `docs.${exp.split("$")[1]}`;
-      return import_model5.default.getDotValue(docs, loc);
+// src/operators/BaseOperator.ts
+var BaseOperator = class {
+  data;
+  operators;
+  constructor() {
+    this.operators = {};
+  }
+  calcObject(data, exp) {
+    return Object.entries(exp).reduce((acc, [key, val]) => {
+      if (typeof this.operators[key] !== void 0) {
+        return this.operators[key](data, val);
+      } else {
+        const newAcc = {
+          ...acc,
+          [key]: this.calcExpression(data, val)
+        };
+        return newAcc;
+      }
+    }, {});
+  }
+  calcExpression(data, exp) {
+    if (Array.isArray(exp)) {
+      return exp.map((e) => {
+        return this.calcExpression(data, e);
+      });
+    } else if (typeof exp === "object" && exp !== null) {
+      return this.calcObject(data, exp);
     } else {
-      const loc = `${exp.split("$")[1]}`;
-      return import_model5.default.getDotValue(data, loc);
+      return getExpressionValue(data, exp);
     }
   }
-  return exp;
-}
+};
 
-// src/operators/$sum.ts
-function $sum(data, val) {
-  if (Array.isArray(data)) {
-    if (Array.isArray(val)) {
-      throw new Error("The $sum accumulator is a unary operator");
-    }
-    const result = data.reduce((acc, curr) => {
-      if (typeof val === "number") {
-        acc = acc + val;
-      } else {
-        const v = getExpressionValue(curr, val);
-        if (typeof v === "number") {
-          acc = acc + v;
-        }
+// src/operators/Accumulators/$sum.ts
+var $sum = class extends BaseOperator {
+  static operatorType = "accumulator";
+  data;
+  params;
+  constructor({ data, params }) {
+    super();
+    this.data = data;
+    this.params = params;
+  }
+  run() {
+    if (Array.isArray(this.data)) {
+      if (Array.isArray(this.params)) {
+        throw new Error("The $sum accumulator is a unary operator");
       }
-      return acc;
-    }, 0);
-    return result;
-  } else {
-    if (Array.isArray(val) && val.length > 1) {
-      const result = val.reduce((acc, curr) => {
-        const v = getExpressionValue(data, curr);
-        if (typeof v === "number") {
-          return v + acc;
+      const result = this.data.reduce((acc, curr) => {
+        if (typeof this.params === "number") {
+          acc = acc + this.params;
+        } else {
+          const v = getExpressionValue(curr, this.params);
+          if (typeof v === "number") {
+            acc = acc + v;
+          }
         }
         return acc;
       }, 0);
       return result;
     } else {
-      const currVal = Array.isArray(val) ? val[0] : val;
-      const v = getExpressionValue(data, currVal);
-      const arrV = [].concat(v);
-      return arrV.reduce((acc, curr) => {
-        if (typeof curr === "number") {
-          return acc + curr;
-        }
-        return acc;
-      }, 0);
+      if (Array.isArray(this.params) && this.params.length > 1) {
+        const result = this.params.reduce((acc, curr) => {
+          const v = getExpressionValue(this.data, curr);
+          if (typeof v === "number") {
+            return v + acc;
+          }
+          return acc;
+        }, 0);
+        return result;
+      } else {
+        const currVal = Array.isArray(this.params) ? this.params[0] : this.params;
+        const v = getExpressionValue(this.data, currVal);
+        const arrV = [].concat(v);
+        return arrV.reduce((acc, curr) => {
+          if (typeof curr === "number") {
+            return acc + curr;
+          }
+          return acc;
+        }, 0);
+      }
     }
   }
-}
-
-// src/calcExpression.ts
-var operators = { $sum };
-function calcObject(data, exp) {
-  return Object.entries(exp).reduce((acc, [key, val]) => {
-    if (typeof operators[key] !== void 0) {
-      return operators[key](data, val);
-    } else {
-      const newAcc = {
-        ...acc,
-        [key]: calcExpression(data, val)
-      };
-      return newAcc;
-    }
-  }, {});
-}
-function calcExpression(data, exp) {
-  if (Array.isArray(exp)) {
-    return exp.map((e) => {
-      return calcExpression(data, e);
-    });
-  } else if (typeof exp === "object" && exp !== null) {
-    return calcObject(data, exp);
-  } else {
-    return getExpressionValue(data, exp);
-  }
-}
+};
 
 // src/stages/$addFields.ts
 var $addFields = class extends BaseStage {
   query;
+  operators = { $sum };
   constructor({ params, ds, cs }) {
     super({ ds, cs });
     this.query = params;
@@ -536,7 +594,7 @@ var $addFields = class extends BaseStage {
       const newVarObj = Object.entries(this.query).reduce((acc, [key, exp]) => {
         return {
           ...acc,
-          [key]: calcExpression(doc, exp)
+          [key]: this.calcExpression(doc, exp)
         };
       }, {});
       return import_lodash3.default.assign(doc, newVarObj);
@@ -707,15 +765,12 @@ function createBaseModel(name, schema) {
       return getClient().ensureIndex(this.collectionName, options);
     }
     static async aggregate(pipeline) {
-      const start = performance.now();
       const aggregateObj = new Aggregation({
         ds: getClient()._collections[this.collectionName],
         cs: null,
         params: pipeline
       });
       const data = await aggregateObj.run();
-      const end = performance.now();
-      console.log(`GENERAL Aggregation lookup time: ${end - start}ms`);
       return data;
     }
   }
