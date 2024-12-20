@@ -1,6 +1,6 @@
 import path from "path";
 import fs from "fs/promises";
-import NeDbModel from "@seald-io/nedb/lib/model";
+import { compareThings } from "../lib/NeDbModel";
 import { getClient, connect } from "../";
 import { object, string, number, date, InferType } from "yup";
 import { NeDbClient } from "../clients/NedbClient";
@@ -808,11 +808,7 @@ describe("Document", () => {
         return newP;
       })
       .sort((a, b) => {
-        return -NeDbModel.compareThings(
-          a,
-          b,
-          getClient()._options.compareStrings,
-        );
+        return -compareThings(a, b, getClient()._options.compareStrings);
       });
 
     await fs.writeFile(

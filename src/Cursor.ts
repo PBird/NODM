@@ -1,5 +1,5 @@
 import NeDbCursor from "@seald-io/nedb/lib/cursor";
-import NeDbModel from "@seald-io/nedb/lib/model";
+import { deepCopy } from "./lib/NeDbModel";
 import Datastore from "@seald-io/nedb";
 import { CursorOptions } from "./types";
 
@@ -11,7 +11,7 @@ export default class Cursor<T> extends NeDbCursor {
     options: CursorOptions = {},
   ) {
     if (mapFn === null) {
-      mapFn = (docs) => docs.map((doc) => NeDbModel.deepCopy(doc));
+      mapFn = (docs) => docs.map((doc) => deepCopy(doc));
     }
     super(db, query, mapFn);
     this._limit = options.limit;

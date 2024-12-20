@@ -1,4 +1,3 @@
-import NeDbModel from "@seald-io/nedb/lib/model";
 import BaseStage from "./BaseStage";
 import { StageOptions } from "../types";
 import Cursor from "../Cursor";

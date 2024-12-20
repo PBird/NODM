@@ -1,4 +1,4 @@
-import NeDbModel from "@seald-io/nedb/lib/model";
+import { getDotValue } from "../lib/NeDbModel";
 import { getClient as db } from "../clients";
 import _ from "lodash";
 import BaseStage from "./BaseStage";
@@ -18,7 +18,7 @@ export default class $lookup<T> extends BaseStage<T> {
   async run() {
     let docs = [];
     if (this.currentCS === null) {
-      docs = this.currentDS.getAllData();
+      docs = await this.currentDS.findAsync({});
     } else {
       docs = await this.currentCS.execAsync();
     }
@@ -26,7 +26,7 @@ export default class $lookup<T> extends BaseStage<T> {
     const { from, localField, foreignField, as, pipeline = [] } = this.query;
 
     const localFieldKeys = _.uniq(
-      docs.map((d) => NeDbModel.getDotValue(d, localField)),
+      docs.map((d) => getDotValue(d, localField)),
     ).flat();
 
     const foreignDocs = await this.getForeingDS(

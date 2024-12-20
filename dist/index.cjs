@@ -64,16 +64,474 @@ var DatabaseClient = class {
 };
 
 // src/clients/NedbClient.ts
-var import_nedb2 = __toESM(require("@seald-io/nedb"), 1);
-var import_model7 = __toESM(require("@seald-io/nedb/lib/model"), 1);
+var import_nedb3 = __toESM(require("@seald-io/nedb"), 1);
+
+// src/lib/NeDbModel.ts
+var import_lodash = require("lodash");
+var checkKey = (k, v) => {
+  if (typeof k === "number") k = k.toString();
+  if (k[0] === "$" && !(k === "$$date" && typeof v === "number") && !(k === "$$deleted" && v === true) && !(k === "$$indexCreated") && !(k === "$$indexRemoved"))
+    throw new Error("Field names cannot begin with the $ character");
+  if (k.indexOf(".") !== -1) throw new Error("Field names cannot contain a .");
+};
+var checkObject = (obj) => {
+  if (Array.isArray(obj)) {
+    obj.forEach((o) => {
+      checkObject(o);
+    });
+  }
+  if (typeof obj === "object" && obj !== null) {
+    for (const k in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, k)) {
+        checkKey(k, obj[k]);
+        checkObject(obj[k]);
+      }
+    }
+  }
+};
+function deepCopy(obj, strictKeys = false) {
+  if (typeof obj === "boolean" || typeof obj === "number" || typeof obj === "string" || obj === null || (0, import_lodash.isDate)(obj))
+    return obj;
+  if (Array.isArray(obj)) return obj.map((o) => deepCopy(o, strictKeys));
+  if (typeof obj === "object") {
+    const res = {};
+    for (const k in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, k) && (!strictKeys || k[0] !== "$" && k.indexOf(".") === -1)) {
+        res[k] = deepCopy(obj[k], strictKeys);
+      }
+    }
+    return res;
+  }
+  return void 0;
+}
+var isPrimitiveType = (obj) => typeof obj === "boolean" || typeof obj === "number" || typeof obj === "string" || obj === null || (0, import_lodash.isDate)(obj) || Array.isArray(obj);
+var compareNSB = (a, b) => {
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+};
+var compareArrays = (a, b) => {
+  const minLength = Math.min(a.length, b.length);
+  for (let i = 0; i < minLength; i += 1) {
+    const comp = compareThings(a[i], b[i]);
+    if (comp !== 0) return comp;
+  }
+  return compareNSB(a.length, b.length);
+};
+var compareThings = (a, b, _compareStrings) => {
+  const compareStrings = _compareStrings || compareNSB;
+  if (a === void 0) return b === void 0 ? 0 : -1;
+  if (b === void 0) return 1;
+  if (a === null) return b === null ? 0 : -1;
+  if (b === null) return 1;
+  if (typeof a === "number")
+    return typeof b === "number" ? compareNSB(a, b) : -1;
+  if (typeof b === "number")
+    return typeof a === "number" ? compareNSB(a, b) : 1;
+  if (typeof a === "string")
+    return typeof b === "string" ? compareStrings(a, b) : -1;
+  if (typeof b === "string")
+    return typeof a === "string" ? compareStrings(a, b) : 1;
+  if (typeof a === "boolean")
+    return typeof b === "boolean" ? compareNSB(a, b) : -1;
+  if (typeof b === "boolean")
+    return typeof a === "boolean" ? compareNSB(a, b) : 1;
+  if ((0, import_lodash.isDate)(a)) return (0, import_lodash.isDate)(b) ? compareNSB(a.getTime(), b.getTime()) : -1;
+  if ((0, import_lodash.isDate)(b)) return (0, import_lodash.isDate)(a) ? compareNSB(a.getTime(), b.getTime()) : 1;
+  if (Array.isArray(a)) return Array.isArray(b) ? compareArrays(a, b) : -1;
+  if (Array.isArray(b)) return Array.isArray(a) ? compareArrays(a, b) : 1;
+  const aKeys = Object.keys(a).sort();
+  const bKeys = Object.keys(b).sort();
+  for (let i = 0; i < Math.min(aKeys.length, bKeys.length); i += 1) {
+    const comp = compareThings(a[aKeys[i]], b[bKeys[i]]);
+    if (comp !== 0) return comp;
+  }
+  return compareNSB(aKeys.length, bKeys.length);
+};
+var createModifierFunction = (lastStepModifierFunction, unset = false) => (obj, field, value) => {
+  const func = (obj2, field2, value2) => {
+    const fieldParts = typeof field2 === "string" ? field2.split(".") : field2;
+    if (fieldParts.length === 1) lastStepModifierFunction(obj2, field2, value2);
+    else {
+      if (obj2[fieldParts[0]] === void 0) {
+        if (unset) return;
+        obj2[fieldParts[0]] = {};
+      }
+      func(obj2[fieldParts[0]], fieldParts.slice(1), value2);
+    }
+  };
+  return func(obj, field, value);
+};
+var $addToSetPartial = (obj, field, value) => {
+  if (!Object.prototype.hasOwnProperty.call(obj, field)) {
+    obj[field] = [];
+  }
+  if (!Array.isArray(obj[field]))
+    throw new Error("Can't $addToSet an element on non-array values");
+  if (value !== null && typeof value === "object" && value.$each) {
+    if (Object.keys(value).length > 1)
+      throw new Error("Can't use another field in conjunction with $each");
+    if (!Array.isArray(value.$each))
+      throw new Error("$each requires an array value");
+    value.$each.forEach((v) => {
+      $addToSetPartial(obj, field, v);
+    });
+  } else {
+    let addToSet = true;
+    obj[field].forEach((v) => {
+      if (compareThings(v, value) === 0) addToSet = false;
+    });
+    if (addToSet) obj[field].push(value);
+  }
+};
+var modifierFunctions = {
+  /**
+   * Set a field to a new value
+   */
+  $set: createModifierFunction((obj, field, value) => {
+    obj[field] = value;
+  }),
+  /**
+   * Unset a field
+   */
+  $unset: createModifierFunction((obj, field, value) => {
+    delete obj[field];
+  }, true),
+  /**
+   * Updates the value of the field, only if specified field is smaller than the current value of the field
+   */
+  $min: createModifierFunction((obj, field, value) => {
+    if (typeof obj[field] === "undefined") obj[field] = value;
+    else if (value < obj[field]) obj[field] = value;
+  }),
+  /**
+   * Updates the value of the field, only if specified field is greater than the current value of the field
+   */
+  $max: createModifierFunction((obj, field, value) => {
+    if (typeof obj[field] === "undefined") obj[field] = value;
+    else if (value > obj[field]) obj[field] = value;
+  }),
+  /**
+   * Increment a numeric field's value
+   */
+  $inc: createModifierFunction((obj, field, value) => {
+    if (typeof value !== "number") throw new Error(`${value} must be a number`);
+    if (typeof obj[field] !== "number") {
+      if (!Object.prototype.hasOwnProperty.call(obj, field)) obj[field] = value;
+      else throw new Error("Don't use the $inc modifier on non-number fields");
+    } else obj[field] += value;
+  }),
+  /**
+   * Removes all instances of a value from an existing array
+   */
+  $pull: createModifierFunction((obj, field, value) => {
+    if (!Array.isArray(obj[field]))
+      throw new Error("Can't $pull an element from non-array values");
+    const arr = obj[field];
+    for (let i = arr.length - 1; i >= 0; i -= 1) {
+      if (match(arr[i], value)) arr.splice(i, 1);
+    }
+  }),
+  /**
+   * Remove the first or last element of an array
+   */
+  $pop: createModifierFunction((obj, field, value) => {
+    if (!Array.isArray(obj[field]))
+      throw new Error("Can't $pop an element from non-array values");
+    if (typeof value !== "number")
+      throw new Error(`${value} isn't an integer, can't use it with $pop`);
+    if (value === 0) return;
+    if (value > 0) obj[field] = obj[field].slice(0, obj[field].length - 1);
+    else obj[field] = obj[field].slice(1);
+  }),
+  /**
+   * Add an element to an array field only if it is not already in it
+   * No modification if the element is already in the array
+   * Note that it doesn't check whether the original array contains duplicates
+   */
+  $addToSet: createModifierFunction($addToSetPartial),
+  /**
+   * Push an element to the end of an array field
+   * Optional modifier $each instead of value to push several values
+   * Optional modifier $slice to slice the resulting array, see https://docs.mongodb.org/manual/reference/operator/update/slice/
+   * Difference with MongoDB: if $slice is specified and not $each, we act as if value is an empty array
+   */
+  $push: createModifierFunction((obj, field, value) => {
+    if (!Object.prototype.hasOwnProperty.call(obj, field)) obj[field] = [];
+    if (!Array.isArray(obj[field]))
+      throw new Error("Can't $push an element on non-array values");
+    if (value !== null && typeof value === "object" && value.$slice && value.$each === void 0)
+      value.$each = [];
+    if (value !== null && typeof value === "object" && value.$each) {
+      if (Object.keys(value).length >= 3 || Object.keys(value).length === 2 && value.$slice === void 0)
+        throw new Error(
+          "Can only use $slice in cunjunction with $each when $push to array"
+        );
+      if (!Array.isArray(value.$each))
+        throw new Error("$each requires an array value");
+      value.$each.forEach((v) => {
+        obj[field].push(v);
+      });
+      if (value.$slice === void 0 || typeof value.$slice !== "number")
+        return;
+      if (value.$slice === 0) obj[field] = [];
+      else {
+        let start;
+        let end;
+        const n = obj[field].length;
+        if (value.$slice < 0) {
+          start = Math.max(0, n + value.$slice);
+          end = n;
+        } else if (value.$slice > 0) {
+          start = 0;
+          end = Math.min(n, value.$slice);
+        }
+        obj[field] = obj[field].slice(start, end);
+      }
+    } else {
+      obj[field].push(value);
+    }
+  })
+};
+var modify = (obj, updateQuery) => {
+  const keys = Object.keys(updateQuery);
+  const firstChars = keys.map((item) => item[0]);
+  const dollarFirstChars = firstChars.filter((c) => c === "$");
+  let newDoc;
+  let modifiers;
+  if (keys.indexOf("_id") !== -1 && updateQuery._id !== obj._id)
+    throw new Error("You cannot change a document's _id");
+  if (dollarFirstChars.length !== 0 && dollarFirstChars.length !== firstChars.length)
+    throw new Error("You cannot mix modifiers and normal fields");
+  if (dollarFirstChars.length === 0) {
+    newDoc = deepCopy(updateQuery);
+    newDoc._id = obj._id;
+  } else {
+    modifiers = (0, import_lodash.uniq)(keys);
+    newDoc = deepCopy(obj);
+    modifiers.forEach((m) => {
+      if (!modifierFunctions[m]) throw new Error(`Unknown modifier ${m}`);
+      if (typeof updateQuery[m] !== "object")
+        throw new Error(`Modifier ${m}'s argument must be an object`);
+      const keys2 = Object.keys(updateQuery[m]);
+      keys2.forEach((k) => {
+        modifierFunctions[m](newDoc, k, updateQuery[m][k]);
+      });
+    });
+  }
+  checkObject(newDoc);
+  if (obj._id !== newDoc._id)
+    throw new Error("You can't change a document's _id");
+  return newDoc;
+};
+var getDotValue = (obj, field) => {
+  const fieldParts = typeof field === "string" ? field.split(".") : field;
+  if (!obj) return void 0;
+  if (fieldParts.length === 0) return obj;
+  if (fieldParts.length === 1) return obj[fieldParts[0]];
+  if (Array.isArray(obj[fieldParts[0]])) {
+    const i = parseInt(fieldParts[1], 10);
+    if (typeof i === "number" && !isNaN(i))
+      return getDotValue(obj[fieldParts[0]][i], fieldParts.slice(2));
+    return obj[fieldParts[0]].map((el) => getDotValue(el, fieldParts.slice(1)));
+  } else return getDotValue(obj[fieldParts[0]], fieldParts.slice(1));
+};
+var areThingsEqual = (a, b) => {
+  if (a === null || typeof a === "string" || typeof a === "boolean" || typeof a === "number" || b === null || typeof b === "string" || typeof b === "boolean" || typeof b === "number")
+    return a === b;
+  if ((0, import_lodash.isDate)(a) || (0, import_lodash.isDate)(b))
+    return (0, import_lodash.isDate)(a) && (0, import_lodash.isDate)(b) && a.getTime() === b.getTime();
+  if (!(Array.isArray(a) && Array.isArray(b)) && (Array.isArray(a) || Array.isArray(b)) || a === void 0 || b === void 0)
+    return false;
+  let aKeys;
+  let bKeys;
+  try {
+    aKeys = Object.keys(a);
+    bKeys = Object.keys(b);
+  } catch (e) {
+    return false;
+  }
+  if (aKeys.length !== bKeys.length) return false;
+  for (const el of aKeys) {
+    if (bKeys.indexOf(el) === -1) return false;
+    if (!areThingsEqual(a[el], b[el])) return false;
+  }
+  return true;
+};
+var areComparable = (a, b) => {
+  if (typeof a !== "string" && typeof a !== "number" && !(0, import_lodash.isDate)(a) && typeof b !== "string" && typeof b !== "number" && !(0, import_lodash.isDate)(b))
+    return false;
+  if (typeof a !== typeof b) return false;
+  return true;
+};
+var comparisonFunctions = {
+  /** Lower than */
+  $lt: (a, b) => areComparable(a, b) && a < b,
+  /** Lower than or equals */
+  $lte: (a, b) => areComparable(a, b) && a <= b,
+  /** Greater than */
+  $gt: (a, b) => areComparable(a, b) && a > b,
+  /** Greater than or equals */
+  $gte: (a, b) => areComparable(a, b) && a >= b,
+  /** Does not equal */
+  $ne: (a, b) => a === void 0 || !areThingsEqual(a, b),
+  /** Is in Array */
+  $in: (a, b) => {
+    if (!Array.isArray(b))
+      throw new Error("$in operator called with a non-array");
+    for (const el of b) {
+      if (areThingsEqual(a, el)) return true;
+    }
+    return false;
+  },
+  /** Is not in Array */
+  $nin: (a, b) => {
+    if (!Array.isArray(b))
+      throw new Error("$nin operator called with a non-array");
+    return !comparisonFunctions.$in(a, b);
+  },
+  /** Matches Regexp */
+  $regex: (a, b) => {
+    if (!(0, import_lodash.isRegExp)(b))
+      throw new Error("$regex operator called with non regular expression");
+    if (typeof a !== "string") return false;
+    else return b.test(a);
+  },
+  /** Returns true if field exists */
+  $exists: (a, b) => {
+    if (b || b === "") b = true;
+    else b = false;
+    if (a === void 0) return !b;
+    else return b;
+  },
+  /** Specific to Arrays, returns true if a length equals b */
+  $size: (a, b) => {
+    if (!Array.isArray(a)) return false;
+    if (b % 1 !== 0)
+      throw new Error("$size operator called without an integer");
+    return a.length === b;
+  },
+  /** Specific to Arrays, returns true if some elements of a match the query b */
+  $elemMatch: (a, b) => {
+    if (!Array.isArray(a)) return false;
+    return a.some((el) => match(el, b));
+  }
+};
+var arrayComparisonFunctions = { $size: true, $elemMatch: true };
+var logicalOperators = {
+  /**
+   * Match any of the subqueries
+   * @param {document} obj
+   * @param {query[]} query
+   * @return {boolean}
+   */
+  $or: (obj, query) => {
+    if (!Array.isArray(query))
+      throw new Error("$or operator used without an array");
+    for (let i = 0; i < query.length; i += 1) {
+      if (match(obj, query[i])) return true;
+    }
+    return false;
+  },
+  /**
+   * Match all of the subqueries
+   * @param {document} obj
+   * @param {query[]} query
+   * @return {boolean}
+   */
+  $and: (obj, query) => {
+    if (!Array.isArray(query))
+      throw new Error("$and operator used without an array");
+    for (let i = 0; i < query.length; i += 1) {
+      if (!match(obj, query[i])) return false;
+    }
+    return true;
+  },
+  /**
+   * Inverted match of the query
+   * @param {document} obj
+   * @param {query} query
+   * @return {boolean}
+   */
+  $not: (obj, query) => !match(obj, query),
+  /**
+   * @callback whereCallback
+   * @param {document} obj
+   * @return {boolean}
+   */
+  /**
+   * Use a function to match
+   * @param {document} obj
+   * @param {whereCallback} fn
+   * @return {boolean}
+   */
+  $where: (obj, fn) => {
+    if (typeof fn !== "function")
+      throw new Error("$where operator used without a function");
+    const result = fn.call(obj);
+    if (typeof result !== "boolean")
+      throw new Error("$where function must return boolean");
+    return result;
+  }
+};
+var match = (obj, query) => {
+  if (isPrimitiveType(obj) || isPrimitiveType(query))
+    return matchQueryPart({ needAKey: obj }, "needAKey", query);
+  for (const queryKey in query) {
+    if (Object.prototype.hasOwnProperty.call(query, queryKey)) {
+      const queryValue = query[queryKey];
+      if (queryKey[0] === "$") {
+        if (!logicalOperators[queryKey])
+          throw new Error(`Unknown logical operator ${queryKey}`);
+        if (!logicalOperators[queryKey](obj, queryValue)) return false;
+      } else if (!matchQueryPart(obj, queryKey, queryValue)) return false;
+    }
+  }
+  return true;
+};
+function matchQueryPart(obj, queryKey, queryValue, treatObjAsValue) {
+  const objValue = getDotValue(obj, queryKey);
+  if (Array.isArray(objValue) && !treatObjAsValue) {
+    if (Array.isArray(queryValue))
+      return matchQueryPart(obj, queryKey, queryValue, true);
+    if (queryValue !== null && typeof queryValue === "object" && !(0, import_lodash.isRegExp)(queryValue)) {
+      for (const key in queryValue) {
+        if (Object.prototype.hasOwnProperty.call(queryValue, key) && arrayComparisonFunctions[key]) {
+          return matchQueryPart(obj, queryKey, queryValue, true);
+        }
+      }
+    }
+    for (const el of objValue) {
+      if (matchQueryPart({ k: el }, "k", queryValue)) return true;
+    }
+    return false;
+  }
+  if (queryValue !== null && typeof queryValue === "object" && !(0, import_lodash.isRegExp)(queryValue) && !Array.isArray(queryValue)) {
+    const keys = Object.keys(queryValue);
+    const firstChars = keys.map((item) => item[0]);
+    const dollarFirstChars = firstChars.filter((c) => c === "$");
+    if (dollarFirstChars.length !== 0 && dollarFirstChars.length !== firstChars.length)
+      throw new Error("You cannot mix operators and normal fields");
+    if (dollarFirstChars.length > 0) {
+      for (const key of keys) {
+        if (!comparisonFunctions[key])
+          throw new Error(`Unknown comparison function ${key}`);
+        if (!comparisonFunctions[key](objValue, queryValue[key])) return false;
+      }
+      return true;
+    }
+  }
+  if ((0, import_lodash.isRegExp)(queryValue))
+    return comparisonFunctions.$regex(objValue, queryValue);
+  return areThingsEqual(objValue, queryValue);
+}
 
 // src/Cursor.ts
 var import_cursor = __toESM(require("@seald-io/nedb/lib/cursor"), 1);
-var import_model = __toESM(require("@seald-io/nedb/lib/model"), 1);
 var Cursor = class extends import_cursor.default {
   constructor(db, query, mapFn, options = {}) {
     if (mapFn === null) {
-      mapFn = (docs) => docs.map((doc) => import_model.default.deepCopy(doc));
+      mapFn = (docs) => docs.map((doc) => deepCopy(doc));
     }
     super(db, query, mapFn);
     this._limit = options.limit;
@@ -87,10 +545,9 @@ var Cursor = class extends import_cursor.default {
 };
 
 // src/utils/hasOperator.ts
-var import_model2 = require("@seald-io/nedb/lib/model");
 function hasOperator(obj) {
   try {
-    (0, import_model2.checkObject)(obj);
+    checkObject(obj);
     return false;
   } catch (error) {
     return true;
@@ -105,19 +562,30 @@ var import_nedb = __toESM(require("@seald-io/nedb"), 1);
 var import_indexes = __toESM(require("@seald-io/nedb/lib/indexes"), 1);
 
 // src/expressionHelpers.ts
-var import_model3 = __toESM(require("@seald-io/nedb/lib/model"), 1);
-function getExpressionValue(data, exp) {
-  if (typeof exp === "string" && exp.startsWith("$")) {
+function parseExpValue(text) {
+  let exp = text;
+  const isExp = typeof text === "string" && text.startsWith("$");
+  if (isExp) {
+    exp = text.split("$")[1];
+  }
+  return {
+    isExp,
+    exp
+  };
+}
+function getExpressionValue(data, params) {
+  const { isExp, exp } = parseExpValue(params);
+  if (isExp) {
     if (Array.isArray(data)) {
       const docs = { docs: data };
-      const loc = `docs.${exp.split("$")[1]}`;
-      return import_model3.default.getDotValue(docs, loc);
+      const loc = `docs.${exp}`;
+      return getDotValue(docs, loc);
     } else {
-      const loc = `${exp.split("$")[1]}`;
-      return import_model3.default.getDotValue(data, loc);
+      const loc = `${exp}`;
+      return getDotValue(data, loc);
     }
   }
-  return exp;
+  return params;
 }
 
 // src/stages/BaseStage.ts
@@ -323,11 +791,10 @@ var $project = class extends BaseStage {
 };
 
 // src/stages/$lookup.ts
-var import_model4 = __toESM(require("@seald-io/nedb/lib/model"), 1);
-var import_lodash2 = __toESM(require("lodash"), 1);
+var import_lodash3 = __toESM(require("lodash"), 1);
 
 // src/utils/RighJoiner.ts
-var import_lodash = __toESM(require("lodash"), 1);
+var import_lodash2 = __toESM(require("lodash"), 1);
 var RightJoiner = class {
   foreignObj;
   localObj;
@@ -338,7 +805,7 @@ var RightJoiner = class {
     this.options = options;
   }
   join() {
-    const foreignByField = import_lodash.default.groupBy(
+    const foreignByField = import_lodash2.default.groupBy(
       this.foreignObj,
       this.options.foreignField
     );
@@ -346,7 +813,7 @@ var RightJoiner = class {
       if (this.options.dropNoMatch && (typeof lo[this.options.localField] === "undefined" || typeof foreignByField[lo[this.options.localField]] === "undefined")) {
         return void 0;
       }
-      const loFieldObjs = import_lodash.default.uniq([].concat(lo[this.options.localField]));
+      const loFieldObjs = import_lodash2.default.uniq([].concat(lo[this.options.localField]));
       let currFieldObjs = [];
       loFieldObjs.forEach((fo) => {
         if (typeof foreignByField[fo] !== "undefined") {
@@ -358,7 +825,7 @@ var RightJoiner = class {
         [this.options.as]: currFieldObjs
       };
     });
-    return import_lodash.default.compact(result);
+    return import_lodash2.default.compact(result);
   }
 };
 
@@ -372,13 +839,13 @@ var $lookup = class extends BaseStage {
   async run() {
     let docs = [];
     if (this.currentCS === null) {
-      docs = this.currentDS.getAllData();
+      docs = await this.currentDS.findAsync({});
     } else {
       docs = await this.currentCS.execAsync();
     }
     const { from, localField, foreignField, as, pipeline = [] } = this.query;
-    const localFieldKeys = import_lodash2.default.uniq(
-      docs.map((d) => import_model4.default.getDotValue(d, localField))
+    const localFieldKeys = import_lodash3.default.uniq(
+      docs.map((d) => getDotValue(d, localField))
     ).flat();
     const foreignDocs = await this.getForeingDS(
       from,
@@ -434,7 +901,6 @@ var $lookup = class extends BaseStage {
 };
 
 // src/stages/$match.ts
-var import_model5 = __toESM(require("@seald-io/nedb/lib/model"), 1);
 var $match = class extends BaseStage {
   query;
   constructor({ params, ds, cs }) {
@@ -445,12 +911,12 @@ var $match = class extends BaseStage {
     if (this.currentCS !== null) {
       await this.updateCursorsDatastore();
       this.currentCS.query = this.query;
-      this.currentCS.mapFn = (docs) => docs.map((doc) => import_model5.default.deepCopy(doc));
+      this.currentCS.mapFn = (docs) => docs.map((doc) => deepCopy(doc));
     } else {
       this.currentCS = new Cursor(
         this.currentDS,
         this.query,
-        (docs) => docs.map((doc) => import_model5.default.deepCopy(doc))
+        (docs) => docs.map((doc) => deepCopy(doc))
       );
     }
   }
@@ -482,7 +948,7 @@ var $count = class extends BaseStage {
 };
 
 // src/stages/$addFields.ts
-var import_lodash3 = __toESM(require("lodash"), 1);
+var import_lodash4 = __toESM(require("lodash"), 1);
 
 // src/operators/BaseOperator.ts
 var BaseOperator = class {
@@ -588,21 +1054,106 @@ var $addFields = class extends BaseStage {
     if (this.currentCS !== null) {
       docs = await this.currentCS.execAsync();
     } else {
-      docs = this.currentDS.getAllData();
+      docs = await this.currentDS.findAsync({});
     }
     const newDocs = docs.map((doc) => {
       const newVarObj = Object.entries(this.query).reduce((acc, [key, exp]) => {
-        return {
-          ...acc,
-          [key]: this.calcExpression(doc, exp)
-        };
+        modifierFunctions.$set(acc, key, this.calcExpression(doc, exp));
+        return acc;
       }, {});
-      return import_lodash3.default.assign(doc, newVarObj);
+      return import_lodash4.default.assign(doc, newVarObj);
     });
     const { ds, cs } = await this.createDatastoreFromDocs(newDocs);
     this.currentCS = cs;
     this.currentDS = ds;
   }
+};
+
+// src/stages/$group.ts
+var import_flat = require("flat");
+
+// src/lib/NeDbUtils.ts
+var isObject = (arg) => typeof arg === "object" && arg !== null;
+
+// src/stages/$group.ts
+var import_nedb2 = __toESM(require("@seald-io/nedb"), 1);
+var $group = class extends BaseStage {
+  params;
+  groupDs;
+  operators = { $sum };
+  constructor({ params, ds, cs }) {
+    super({ ds, cs });
+    this.params = params;
+    if (!(isObject(params) && "_id" in params)) {
+      throw new Error("a group specification must include an _id");
+    }
+    this.groupDs = new import_nedb2.default({ autoload: true, inMemoryOnly: true });
+  }
+  async run() {
+    let docs = [];
+    if (this.currentCS === null) {
+      docs = await this.currentDS.findAsync({});
+    } else {
+      docs = await this.currentCS.execAsync();
+    }
+    await this.ensureGroupDsIndex();
+    await this.createGroups(docs);
+    this.currentDS = this.groupDs;
+  }
+  async createGroups(docs) {
+    for (const doc of docs) {
+      const newDoc = this.calcExpression(doc, this.params);
+      const existDoc = await this.groupDs.findOneAsync(newDoc);
+      if (existDoc) {
+        await this.groupDs.removeAsync(newDoc, { multi: false });
+        await this.groupDs.insertAsync({
+          ...existDoc,
+          docs: existDoc.docs.concat(doc)
+        });
+      } else {
+        await this.groupDs.insertAsync({ ...newDoc, docs: [doc] });
+      }
+    }
+  }
+  async ensureGroupDsIndex() {
+    const { expKeys } = this.getKeys();
+    await this.groupDs.ensureIndexAsync({
+      fieldName: expKeys,
+      unique: false
+    });
+  }
+  getKeys() {
+    let keys = {};
+    keys = (0, import_flat.flatten)(this.params);
+    const expKeys = Object.values(keys).reduce((acc, curr) => {
+      const { isExp, exp } = parseExpValue(curr);
+      if (isExp) {
+        acc.push(exp);
+      }
+      return acc;
+    }, []);
+    return {
+      keys,
+      expKeys
+    };
+  }
+  // $group: {
+  //    _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },  // Her günü gruplayarak tarihi biçimlendiriyoruz
+  //    products: { $push: "$$ROOT" }  // Her gün için ürünlerin tamamını listele
+  //  }
+  // group stage i her bir key içine sadece accumulator alıyor, örneğin $sum, $push
+  // protected checkOperator(exp) {
+  //   const keys = Object.keys(exp);
+  //   if (keys.length > 1) {
+  //     keys.forEach((key) => {
+  //       if (typeof this.operators[key] !== "undefined") {
+  //         if (this.operators[key].operatorType === "accumulator") {
+  //           throw new Error(`The field must specify one accumulator`);
+  //         }
+  //       }
+  //     });
+  //   }
+  // }
 };
 
 // src/Aggregation.ts
@@ -618,7 +1169,8 @@ var Aggregation = class extends BaseStage {
     $project,
     $skip,
     $sort,
-    $addFields
+    $addFields,
+    $group
   };
   constructor({ ds, cs, params }) {
     super({ ds, cs });
@@ -828,21 +1380,20 @@ function createModel(collectionName, schema) {
 }
 
 // src/utils.ts
-var import_model6 = __toESM(require("@seald-io/nedb/lib/model"), 1);
 async function castAndValidateOnUpserting(schema, query, updateQ) {
   let toBeInserted;
   try {
-    import_model6.default.checkObject(updateQ);
+    checkObject(updateQ);
     toBeInserted = updateQ;
   } catch (e) {
-    toBeInserted = import_model6.default.modify(import_model6.default.deepCopy(query, true), updateQ);
+    toBeInserted = modify(deepCopy(query, true), updateQ);
   }
   const validatedData = await schema.validate(toBeInserted);
   return validatedData;
 }
 async function castAndValidateOnUpdate(schema, oldDoc, updateQ, overwrite) {
   if (overwrite || hasOperator(updateQ)) {
-    const newDoc = import_model6.default.modify(import_model6.default.deepCopy(oldDoc), updateQ);
+    const newDoc = modify(deepCopy(oldDoc), updateQ);
     const castedData = await schema.validate(newDoc);
     return { updateQ, castedData };
   } else {
@@ -881,10 +1432,10 @@ var NeDbClient = class _NeDbClient extends DatabaseClient {
   }
   model(name, schema) {
     if (this._path === "memory") {
-      const ds2 = new import_nedb2.default({ inMemoryOnly: true, ...this._options });
+      const ds2 = new import_nedb3.default({ inMemoryOnly: true, ...this._options });
     }
     let collectionPath = this.getCollectionPath(name);
-    const ds = new import_nedb2.default({ filename: collectionPath, ...this._options });
+    const ds = new import_nedb3.default({ filename: collectionPath, ...this._options });
     const Model = createModel(name, schema);
     this._collections[name] = ds;
     this._schemas[name] = Model.schema;
@@ -957,7 +1508,7 @@ var NeDbClient = class _NeDbClient extends DatabaseClient {
     const cursor = new Cursor(
       currentCollection,
       query,
-      (docs) => docs.length === 1 ? import_model7.default.deepCopy(docs[0]) : null,
+      (docs) => docs.length === 1 ? deepCopy(docs[0]) : null,
       {
         projection,
         limit: 1
@@ -1078,7 +1629,7 @@ var NeDbClient = class _NeDbClient extends DatabaseClient {
     const cursor = new Cursor(
       currentCollection,
       query,
-      (docs) => docs.map((doc) => import_model7.default.deepCopy(doc)),
+      (docs) => docs.map((doc) => deepCopy(doc)),
       options
     );
     const results = await cursor;

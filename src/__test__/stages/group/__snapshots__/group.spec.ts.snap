@@ -1,0 +1,435 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Stages/$group SHOULD group multi key 1`] = `
+[
+  {
+    "_id": {
+      "date": undefined,
+      "type": "B",
+    },
+    "docs": [
+      {
+        "_id": "A10",
+        "item_name": "Green",
+        "price": 10,
+        "qty": 30,
+        "type": "B",
+      },
+    ],
+  },
+  {
+    "_id": {
+      "date": "05/12/2014",
+      "type": "B",
+    },
+    "docs": [
+      {
+        "_id": "A5",
+        "date_of_bill": "05/12/2014",
+        "item_name": "Red",
+        "price": 12,
+        "qty": 10,
+        "type": "B",
+      },
+    ],
+  },
+  {
+    "_id": {
+      "date": "05/12/2014",
+      "type": "C",
+    },
+    "docs": [
+      {
+        "_id": "A2",
+        "date_of_bill": "05/12/2014",
+        "item_name": "Red",
+        "price": 15,
+        "qty": 20,
+        "type": "C",
+      },
+    ],
+  },
+  {
+    "_id": {
+      "date": "05/12/2014",
+      "type": "D",
+    },
+    "docs": [
+      {
+        "_id": "A7",
+        "date_of_bill": "05/12/2014",
+        "item_name": "Red",
+        "price": 8,
+        "qty": 15,
+        "type": "D",
+      },
+    ],
+  },
+  {
+    "_id": {
+      "date": "07/02/2014",
+      "type": "B",
+    },
+    "docs": [
+      {
+        "_id": "A3",
+        "date_of_bill": "07/02/2014",
+        "item_name": "White",
+        "price": 8,
+        "qty": 25,
+        "type": "B",
+      },
+    ],
+  },
+  {
+    "_id": {
+      "date": "13/04/2015",
+      "type": "B",
+    },
+    "docs": [
+      {
+        "_id": "A4",
+        "date_of_bill": "13/04/2015",
+        "item_name": "Blue",
+        "price": 15,
+        "qty": 20,
+        "type": "B",
+      },
+    ],
+  },
+  {
+    "_id": {
+      "date": "13/04/2015",
+      "type": "C",
+    },
+    "docs": [
+      {
+        "_id": "A1",
+        "date_of_bill": "13/04/2015",
+        "item_name": "Blue",
+        "price": 10,
+        "qty": 15,
+        "type": "C",
+      },
+    ],
+  },
+  {
+    "_id": {
+      "date": "17/12/2014",
+      "type": "B",
+    },
+    "docs": [
+      {
+        "_id": "A9",
+        "date_of_bill": "17/12/2014",
+        "item_name": "Green",
+        "price": 10,
+        "qty": 30,
+        "type": "B",
+      },
+    ],
+  },
+  {
+    "_id": {
+      "date": "17/12/2014",
+      "type": "C",
+    },
+    "docs": [
+      {
+        "_id": null,
+        "date_of_bill": "17/12/2014",
+        "item_name": "Green",
+        "price": 10,
+        "qty": 30,
+        "type": "C",
+      },
+    ],
+  },
+  {
+    "_id": {
+      "date": "17/12/2014",
+      "type": "D",
+    },
+    "docs": [
+      {
+        "_id": "A8",
+        "date_of_bill": "17/12/2014",
+        "item_name": "Green",
+        "price": 20,
+        "qty": 10,
+        "type": "D",
+      },
+    ],
+  },
+  {
+    "_id": {
+      "date": "22/04/2020",
+      "type": "C",
+    },
+    "docs": [
+      {
+        "_id": "A6",
+        "date_of_bill": "22/04/2020",
+        "item_name": "Black",
+        "price": 10,
+        "qty": 30,
+        "type": "C",
+      },
+    ],
+  },
+]
+`;
+
+exports[`Stages/$group SHOULD group one key 1`] = `
+[
+  {
+    "_id": {
+      "type": "B",
+    },
+    "docs": [
+      {
+        "_id": "A10",
+        "item_name": "Green",
+        "price": 10,
+        "qty": 30,
+        "type": "B",
+      },
+      {
+        "_id": "A3",
+        "date_of_bill": "07/02/2014",
+        "item_name": "White",
+        "price": 8,
+        "qty": 25,
+        "type": "B",
+      },
+      {
+        "_id": "A4",
+        "date_of_bill": "13/04/2015",
+        "item_name": "Blue",
+        "price": 15,
+        "qty": 20,
+        "type": "B",
+      },
+      {
+        "_id": "A5",
+        "date_of_bill": "05/12/2014",
+        "item_name": "Red",
+        "price": 12,
+        "qty": 10,
+        "type": "B",
+      },
+      {
+        "_id": "A9",
+        "date_of_bill": "17/12/2014",
+        "item_name": "Green",
+        "price": 10,
+        "qty": 30,
+        "type": "B",
+      },
+    ],
+  },
+  {
+    "_id": {
+      "type": "C",
+    },
+    "docs": [
+      {
+        "_id": null,
+        "date_of_bill": "17/12/2014",
+        "item_name": "Green",
+        "price": 10,
+        "qty": 30,
+        "type": "C",
+      },
+      {
+        "_id": "A1",
+        "date_of_bill": "13/04/2015",
+        "item_name": "Blue",
+        "price": 10,
+        "qty": 15,
+        "type": "C",
+      },
+      {
+        "_id": "A2",
+        "date_of_bill": "05/12/2014",
+        "item_name": "Red",
+        "price": 15,
+        "qty": 20,
+        "type": "C",
+      },
+      {
+        "_id": "A6",
+        "date_of_bill": "22/04/2020",
+        "item_name": "Black",
+        "price": 10,
+        "qty": 30,
+        "type": "C",
+      },
+    ],
+  },
+  {
+    "_id": {
+      "type": "D",
+    },
+    "docs": [
+      {
+        "_id": "A7",
+        "date_of_bill": "05/12/2014",
+        "item_name": "Red",
+        "price": 8,
+        "qty": 15,
+        "type": "D",
+      },
+      {
+        "_id": "A8",
+        "date_of_bill": "17/12/2014",
+        "item_name": "Green",
+        "price": 20,
+        "qty": 10,
+        "type": "D",
+      },
+    ],
+  },
+]
+`;
+
+exports[`Stages/$group SHOULD group work operators $sum 1`] = `
+[
+  {
+    "_id": {
+      "totalPrice": 22,
+    },
+    "docs": [
+      {
+        "_id": "A5",
+        "date_of_bill": "05/12/2014",
+        "item_name": "Red",
+        "price": 12,
+        "qty": 10,
+        "type": "B",
+      },
+    ],
+  },
+  {
+    "_id": {
+      "totalPrice": 23,
+    },
+    "docs": [
+      {
+        "_id": "A7",
+        "date_of_bill": "05/12/2014",
+        "item_name": "Red",
+        "price": 8,
+        "qty": 15,
+        "type": "D",
+      },
+    ],
+  },
+  {
+    "_id": {
+      "totalPrice": 25,
+    },
+    "docs": [
+      {
+        "_id": "A1",
+        "date_of_bill": "13/04/2015",
+        "item_name": "Blue",
+        "price": 10,
+        "qty": 15,
+        "type": "C",
+      },
+    ],
+  },
+  {
+    "_id": {
+      "totalPrice": 30,
+    },
+    "docs": [
+      {
+        "_id": "A8",
+        "date_of_bill": "17/12/2014",
+        "item_name": "Green",
+        "price": 20,
+        "qty": 10,
+        "type": "D",
+      },
+    ],
+  },
+  {
+    "_id": {
+      "totalPrice": 33,
+    },
+    "docs": [
+      {
+        "_id": "A3",
+        "date_of_bill": "07/02/2014",
+        "item_name": "White",
+        "price": 8,
+        "qty": 25,
+        "type": "B",
+      },
+    ],
+  },
+  {
+    "_id": {
+      "totalPrice": 35,
+    },
+    "docs": [
+      {
+        "_id": "A2",
+        "date_of_bill": "05/12/2014",
+        "item_name": "Red",
+        "price": 15,
+        "qty": 20,
+        "type": "C",
+      },
+      {
+        "_id": "A4",
+        "date_of_bill": "13/04/2015",
+        "item_name": "Blue",
+        "price": 15,
+        "qty": 20,
+        "type": "B",
+      },
+    ],
+  },
+  {
+    "_id": {
+      "totalPrice": 40,
+    },
+    "docs": [
+      {
+        "_id": null,
+        "date_of_bill": "17/12/2014",
+        "item_name": "Green",
+        "price": 10,
+        "qty": 30,
+        "type": "C",
+      },
+      {
+        "_id": "A10",
+        "item_name": "Green",
+        "price": 10,
+        "qty": 30,
+        "type": "B",
+      },
+      {
+        "_id": "A6",
+        "date_of_bill": "22/04/2020",
+        "item_name": "Black",
+        "price": 10,
+        "qty": 30,
+        "type": "C",
+      },
+      {
+        "_id": "A9",
+        "date_of_bill": "17/12/2014",
+        "item_name": "Green",
+        "price": 10,
+        "qty": 30,
+        "type": "B",
+      },
+    ],
+  },
+]
+`;

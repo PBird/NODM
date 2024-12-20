@@ -1,4 +1,4 @@
-import NeDbModel from "@seald-io/nedb/lib/model";
+import { deepCopy } from "../lib/NeDbModel";
 import BaseStage from "./BaseStage";
 import { StageOptions } from "../types";
 import Cursor from "../Cursor";
@@ -19,10 +19,10 @@ export default class $match<T> extends BaseStage<T> {
       // @ts-ignore
       this.currentCS.query = this.query;
       // @ts-ignore bu fonksiyon seald-io/nedb lib/datastore.js dosyasından referans alındı
-      this.currentCS.mapFn = (docs) => docs.map((doc) => NeDbModel.deepCopy(doc));
+      this.currentCS.mapFn = (docs) => docs.map((doc) => deepCopy(doc));
     } else {
       this.currentCS = new Cursor(this.currentDS, this.query, (docs) =>
-        docs.map((doc) => NeDbModel.deepCopy(doc)),
+        docs.map((doc) => deepCopy(doc)),
       );
     }
   }

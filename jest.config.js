@@ -1,8 +1,10 @@
-/** @type {import('ts-jest').JestConfigWithTsJest} **/
+// flat lib has es6mudule in js file so we should compile
+const esModules = ["flat"].join("|");
+
 export default {
   testEnvironment: "node",
   transform: {
-    "^.+.tsx?$": ["ts-jest", { diagnostics: false }],
+    "^.+\\.[t|j]sx?$": "babel-jest",
   },
-  preset: "ts-jest",
+  transformIgnorePatterns: [`/node_modules/(?!${esModules})`],
 };

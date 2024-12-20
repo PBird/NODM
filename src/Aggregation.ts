@@ -1,7 +1,5 @@
 import Datastore from "@seald-io/nedb";
-import { deepCopy, getDotValue } from "@seald-io/nedb/lib/model";
 import _ from "lodash";
-import RightJoiner from "./utils/RighJoiner";
 import $limit from "./stages/$limit";
 import BaseStage from "./stages/BaseStage";
 import Cursor from "./Cursor";
@@ -13,6 +11,7 @@ import $lookup from "./stages/$lookup";
 import $match from "./stages/$match";
 import $count from "./stages/$count";
 import $addFields from "./stages/$addFields";
+import { $group } from "./stages/$group";
 
 // kendi Datastore'unu oluşturuyorsa type: J
 // CS -> CS geçişte yeni Datastore' a gerek yok
@@ -49,6 +48,7 @@ export default class Aggregation<T> extends BaseStage<T> {
     $skip,
     $sort,
     $addFields,
+    $group,
   };
 
   constructor({ ds, cs, params }: AggregationOptions<T>) {

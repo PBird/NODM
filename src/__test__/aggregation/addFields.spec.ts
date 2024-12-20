@@ -190,4 +190,18 @@ describe("Document", () => {
       expect(d.testField).toBe(d.labs[0] + d.final);
     });
   });
+
+  test("SHOULD aggregate addFields dot notation", async () => {
+    const docs = await Quiz.aggregate([
+      {
+        $addFields: {
+          "testField.inner": { $sum: "$final" },
+        },
+      },
+    ]);
+
+    docs.forEach((d) => {
+      expect(d.testField.inner).toBe(d.final);
+    });
+  });
 });

@@ -1,4 +1,4 @@
-import { checkObject } from "@seald-io/nedb/lib/model";
+import { checkObject } from "../lib/NeDbModel";
 
 export default function hasOperator(obj: any) {
   try {

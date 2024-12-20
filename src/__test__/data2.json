@@ -1,4 +1,93 @@
 {
+  "invoices": [
+    {
+      "_id": "A1",
+      "item_name": "Blue",
+      "type": "C",
+      "price": 10,
+      "qty": 15,
+      "date_of_bill": "13/04/2015"
+    },
+    {
+      "_id": "A2",
+      "item_name": "Red",
+      "type": "C",
+      "price": 15,
+      "qty": 20,
+      "date_of_bill": "05/12/2014"
+    },
+    {
+      "_id": null,
+      "item_name": "Green",
+      "type": "C",
+      "price": 10,
+      "qty": 30,
+      "date_of_bill": "17/12/2014"
+    },
+    {
+      "_id": "A3",
+      "item_name": "White",
+      "type": "B",
+      "price": 8,
+      "qty": 25,
+      "date_of_bill": "07/02/2014"
+    },
+    {
+      "_id": "A4",
+      "item_name": "Blue",
+      "type": "B",
+      "price": 15,
+      "qty": 20,
+      "date_of_bill": "13/04/2015"
+    },
+    {
+      "_id": "A5",
+      "item_name": "Red",
+      "type": "B",
+      "price": 12,
+      "qty": 10,
+      "date_of_bill": "05/12/2014"
+    },
+    {
+      "_id": "A6",
+      "item_name": "Black",
+      "type": "C",
+      "price": 10,
+      "qty": 30,
+      "date_of_bill": "22/04/2020"
+    },
+    {
+      "_id": "A7",
+      "item_name": "Red",
+      "type": "D",
+      "price": 8,
+      "qty": 15,
+      "date_of_bill": "05/12/2014"
+    },
+    {
+      "_id": "A8",
+      "item_name": "Green",
+      "type": "D",
+      "price": 20,
+      "qty": 10,
+      "date_of_bill": "17/12/2014"
+    },
+    {
+      "_id": "A9",
+      "item_name": "Green",
+      "type": "B",
+      "price": 10,
+      "qty": 30,
+      "date_of_bill": "17/12/2014"
+    },
+    {
+      "_id": "A10",
+      "item_name": "Green",
+      "type": "B",
+      "price": 10,
+      "qty": 30
+    }
+  ],
   "orders": [
     {
       "_id": 1,

@@ -1,8 +1,8 @@
-import NeDbModel from "@seald-io/nedb/lib/model";
 import _ from "lodash";
 import BaseStage from "./BaseStage";
 import { StageOptions } from "../types";
 import $sum from "../operators/Accumulators/$sum";
+import { modifierFunctions } from "../lib/NeDbModel";
 
 export default class $addFields<T> extends BaseStage<T> {
   query: any;
@@ -30,15 +30,13 @@ export default class $addFields<T> extends BaseStage<T> {
     if (this.currentCS !== null) {
       docs = await this.currentCS.execAsync();
     } else {
-      docs = this.currentDS.getAllData();
+      docs = await this.currentDS.findAsync({});
     }
 
     const newDocs = docs.map((doc) => {
       const newVarObj = Object.entries(this.query).reduce((acc, [key, exp]) => {
-        return {
-          ...acc,
-          [key]: this.calcExpression(doc, exp),
-        };
+        modifierFunctions.$set(acc, key, this.calcExpression(doc, exp));
+        return acc;
       }, {});
       return _.assign(doc, newVarObj);
     });
