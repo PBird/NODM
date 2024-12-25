@@ -807,13 +807,14 @@ var RightJoiner = class {
   join() {
     const foreignByField = import_lodash2.default.groupBy(
       this.foreignObj,
-      this.options.foreignField
+      (v) => getDotValue(v, this.options.foreignField)
     );
     const result = this.localObj.map((lo) => {
-      if (this.options.dropNoMatch && (typeof lo[this.options.localField] === "undefined" || typeof foreignByField[lo[this.options.localField]] === "undefined")) {
+      const localValue = getDotValue(lo, this.options.localField);
+      if (this.options.dropNoMatch && (localValue === void 0 || foreignByField[localValue] === void 0)) {
         return void 0;
       }
-      const loFieldObjs = import_lodash2.default.uniq([].concat(lo[this.options.localField]));
+      const loFieldObjs = import_lodash2.default.uniq([].concat(localValue));
       let currFieldObjs = [];
       loFieldObjs.forEach((fo) => {
         if (typeof foreignByField[fo] !== "undefined") {
@@ -1393,11 +1394,14 @@ async function castAndValidateOnUpserting(schema, query, updateQ) {
 }
 async function castAndValidateOnUpdate(schema, oldDoc, updateQ, overwrite) {
   if (overwrite || hasOperator(updateQ)) {
+    if (overwrite) {
+      console.warn("MAYBE THERE IS BUG on overwrite");
+    }
     const newDoc = modify(deepCopy(oldDoc), updateQ);
     const castedData = await schema.validate(newDoc);
     return { updateQ, castedData };
   } else {
-    const castedData = await schema.partial().validate(updateQ);
+    const castedData = await schema.pick(Object.keys(updateQ)).validate(updateQ);
     return {
       updateQ: { $set: castedData },
       castedData
