@@ -93,19 +93,35 @@
   "subProducts": [
     {
       "_id": "1sp",
-      "stockCode": "TP-1"
+      "stockCode": "TP-1",
+      "extraDetails": {
+        "barcode_id": "1b"
+      }
     },
     {
       "_id": "2sp",
-      "stockCode": "TP-2"
+      "stockCode": "TP-2",
+      "extraDetails": {
+        "barcode_id": "2b"
+      }
     },
     {
       "_id": "3sp",
-      "stockCode": "TP-3"
+      "stockCode": "TP-3",
+      "extraDetails": {
+        "barcode_id": "3b"
+      }
     },
     {
       "_id": "4sp",
       "stockCode": "TP-4"
+    },
+    {
+      "_id": "5sp",
+      "stockCode": "TP-3",
+      "extraDetails": {
+        "barcode_id": "doesnotknown"
+      }
     }
   ],
   "barcodes": [

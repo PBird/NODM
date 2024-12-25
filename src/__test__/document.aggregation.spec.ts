@@ -820,4 +820,76 @@ describe("Document", () => {
     expect(docs.length).toBe(expectedDocs.length);
     expect(JSON.stringify(docs)).toBe(JSON.stringify(expectedDocs));
   });
+
+  test("aggregate $lookup localfield dotValue ", async () => {
+    const docs = await Product.aggregate([
+      {
+        $lookup: {
+          from: "subProduct",
+          localField: "sub_product_ids.0",
+          foreignField: "_id",
+          as: "sub_pro_obj",
+        },
+      },
+    ]);
+
+    await fs.writeFile(
+      path.join(dbPath, "aggregate-lookup-localField-dotValue.json"),
+      JSON.stringify(docs, null, 2),
+      "utf8",
+    );
+
+    // beklenilen dosyaları çek burda sıranın önemi yok
+    const productDocs = await Product.find({});
+    const subProDocs = await SubProduct.find({
+      _id: { $in: productDocs.map((b) => b.sub_product_ids[0]) },
+    });
+    const expectedDocs = productDocs.map((p) => {
+      const newProduct = {
+        ...p,
+        sub_pro_obj: subProDocs.filter((sp) => sp._id === p.sub_product_ids[0]),
+      };
+      return newProduct;
+    });
+
+    expect(docs.length).toBe(expectedDocs.length);
+    expect(JSON.stringify(docs)).toBe(JSON.stringify(expectedDocs));
+  });
+
+  test("aggregate $lookup foreignField dotValue ", async () => {
+    const docs = await Barcode.aggregate([
+      {
+        $lookup: {
+          from: "subProduct",
+          localField: "_id",
+          foreignField: "extraDetails.barcode_id",
+          as: "sub_obj_ext",
+        },
+      },
+    ]);
+
+    await fs.writeFile(
+      path.join(dbPath, "aggregate-lookup-foreignField-dotValue.json"),
+      JSON.stringify(docs, null, 2),
+      "utf8",
+    );
+
+    // beklenilen dosyaları çek burda sıranın önemi yok
+    const barcodeDocs = await Barcode.find({});
+    const subProDocs = await SubProduct.find({
+      "extraDetails.barcode_id": { $in: barcodeDocs.map((b) => b._id) },
+    });
+    const expectedDocs = barcodeDocs.map((b) => {
+      const newB = {
+        ...b,
+        sub_obj_ext: subProDocs.filter(
+          (sp) => sp.extraDetails.barcode_id === b._id,
+        ),
+      };
+      return newB;
+    });
+
+    expect(docs.length).toBe(expectedDocs.length);
+    expect(JSON.stringify(docs)).toBe(JSON.stringify(expectedDocs));
+  });
 });
