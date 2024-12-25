@@ -1,4 +1,5 @@
-import _ from 'lodash';
+import _ from "lodash";
+import { getDotValue } from "../lib/NeDbModel";
 
 /**
  *  Right join işlemleri tek bir sınıfta.
@@ -43,28 +44,27 @@ export default class RightJoiner<
   }
 
   join() {
-    const foreignByField = _.groupBy(
-      this.foreignObj,
-      this.options.foreignField,
+    const foreignByField = _.groupBy(this.foreignObj, (v) =>
+      getDotValue(v, this.options.foreignField),
     );
 
     const result = this.localObj.map((lo) => {
       // eğer dropNoMatch true ise
       // localObj nesnesindeki anahtar yoksa ve eşleşmiyorsa undefined
+      const localValue = getDotValue(lo, this.options.localField);
       if (
         this.options.dropNoMatch &&
-        (typeof lo[this.options.localField] === 'undefined' ||
-          typeof foreignByField[lo[this.options.localField]] === 'undefined')
+        (localValue === undefined || foreignByField[localValue] === undefined)
       ) {
         return undefined;
       }
 
-      const loFieldObjs = _.uniq([].concat(lo[this.options.localField]));
+      const loFieldObjs = _.uniq([].concat(localValue));
 
       let currFieldObjs: O[] = [];
 
       loFieldObjs.forEach((fo) => {
-        if (typeof foreignByField[fo] !== 'undefined') {
+        if (typeof foreignByField[fo] !== "undefined") {
           currFieldObjs = currFieldObjs.concat(foreignByField[fo]);
         }
       });
@@ -77,4 +77,3 @@ export default class RightJoiner<
     return _.compact(result);
   }
 }
-
