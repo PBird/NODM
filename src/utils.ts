@@ -31,12 +31,18 @@ export async function castAndValidateOnUpdate<T extends AnyObject>(
   overwrite?: boolean,
 ) {
   if (overwrite || hasOperator(updateQ)) {
+    // TODO: should we change for overwrite to create from empty object
+    if (overwrite){
+      console.warn("MAYBE THERE IS BUG on overwrite")
+    }
     const newDoc = modify(deepCopy(oldDoc), updateQ);
 
     const castedData = await schema.validate(newDoc);
     return { updateQ, castedData };
   } else {
-    const castedData = await schema.partial().validate(updateQ);
+    const castedData = await schema
+      .pick(Object.keys(updateQ))
+      .validate(updateQ);
 
     return {
       updateQ: { $set: castedData },
